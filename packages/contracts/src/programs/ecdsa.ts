@@ -3,6 +3,8 @@ import {
   Bytes,
   Crypto,
   type EcdsaSignatureV2,
+  Field,
+  Struct,
   ZkProgram,
   createEcdsaV2,
   createForeignCurveV2,
@@ -19,16 +21,21 @@ export class Secp256k1Signature extends createEcdsaV2(Secp256k1) {}
 export class Ecdsa extends createEcdsaV2(Secp256k1) {}
 export class Bytes32 extends Bytes(32) {}
 
-export const ecdsaProgram = ZkProgram({
+export class EcdsaProgramPublicInput extends Struct({
+  message: Bytes32.provable,
+  publicKey: Secp256k1.provable,
+}) {}
+
+export const EcdsaProgram = ZkProgram({
   name: "ecdsa",
+  publicInput: EcdsaProgramPublicInput,
   publicOutput: Bool,
   methods: {
     verifySignature: {
-      privateInputs: [Bytes32.provable, Ecdsa.provable, Secp256k1.provable],
+      privateInputs: [Ecdsa.provable],
       async method(
-        message: Bytes,
+        { message, publicKey }: EcdsaProgramPublicInput,
         signature: EcdsaSignatureV2,
-        publicKey: Secp256k1,
       ) {
         return signature.verifyV2(message, publicKey)
       },
@@ -36,4 +43,6 @@ export const ecdsaProgram = ZkProgram({
   },
 })
 
-export type EcdsaProgram = typeof ecdsaProgram
+export class EcdsaProgramProof extends ZkProgram.Proof(EcdsaProgram) {}
+
+export type EcdsaProgram = typeof EcdsaProgram
