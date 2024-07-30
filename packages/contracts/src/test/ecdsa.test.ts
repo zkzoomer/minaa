@@ -5,7 +5,7 @@ import {
   EcdsaProgram,
   Secp256k1,
   Secp256k1Scalar,
-} from "./ecdsa"
+} from "../contracts/ecdsa"
 
 // a private key is a random scalar of secp256k1
 const privateKey = Secp256k1Scalar.random()

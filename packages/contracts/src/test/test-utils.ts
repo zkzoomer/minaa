@@ -1,9 +1,4 @@
-import {
-  AccountUpdate,
-  Mina,
-  type PrivateKey,
-  fetchAccount,
-} from "o1js"
+import { AccountUpdate, Mina, type PrivateKey, fetchAccount } from "o1js"
 
 const proofsEnabled = process.env.SKIP_PROOFS !== "true"
 if (!proofsEnabled) console.log("Skipping proof generation in tests.")
