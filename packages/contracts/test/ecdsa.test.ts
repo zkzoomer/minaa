@@ -17,7 +17,7 @@ const message = Bytes32.fromString("sneed")
 // sign the message--not a provable method
 const signature = Ecdsa.sign(message.toBytes(), privateKey.toBigInt())
 
-xdescribe("ECDSA", () => {
+describe("ECDSA", () => {
   it("compiles the ECDSA zkProgram", async () => {
     const cache: Cache = Cache.FileSystem("./cache")
     await EcdsaProgram.compile({ cache })

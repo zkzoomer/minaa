@@ -4,7 +4,7 @@ import { Ownable } from "../src/contracts/Ownable"
 
 const FEE = 100_000_000
 
-xdescribe("Ownable", () => {
+describe("Ownable", () => {
   let deployer: Mina.TestPublicKey
   let sender: Mina.TestPublicKey
   let receiver: Mina.TestPublicKey
