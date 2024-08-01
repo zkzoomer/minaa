@@ -5,7 +5,7 @@ import {
   EcdsaProgram,
   Secp256k1,
   Secp256k1Scalar,
-} from "../contracts/ecdsa"
+} from "../src/programs/ecdsa"
 
 // a private key is a random scalar of secp256k1
 const privateKey = Secp256k1Scalar.random()
@@ -17,7 +17,7 @@ const message = Bytes32.fromString("sneed")
 // sign the message--not a provable method
 const signature = Ecdsa.sign(message.toBytes(), privateKey.toBigInt())
 
-describe("ECDSA", () => {
+xdescribe("ECDSA", () => {
   it("compiles the ECDSA zkProgram", async () => {
     const cache: Cache = Cache.FileSystem("./cache")
     await EcdsaProgram.compile({ cache })

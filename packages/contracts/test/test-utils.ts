@@ -1,4 +1,5 @@
-import { AccountUpdate, Mina, type PrivateKey, fetchAccount } from "o1js"
+import { AccountUpdate, Bool, Mina, type PrivateKey, fetchAccount, Crypto } from "o1js"
+import { EcdsaProgramProof, EcdsaProgramPublicInput } from "../src/programs/ecdsa"
 
 const proofsEnabled = process.env.SKIP_PROOFS !== "true"
 if (!proofsEnabled) console.log("Skipping proof generation in tests.")
@@ -29,4 +30,15 @@ export const ensureFundedAccount = async (privateKey: PrivateKey) => {
     AccountUpdate.fundNewAccount(publicKey, 1)
   }
   return { privateKey, publicKey }
+}
+
+export async function ecdsaMockProof(
+  publicInput: EcdsaProgramPublicInput,
+  publicOutput: Bool
+): Promise<EcdsaProgramProof> {
+  return EcdsaProgramProof.dummy(
+    publicInput,
+    publicOutput,
+    2,
+  )
 }
