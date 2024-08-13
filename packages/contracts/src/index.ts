@@ -1,4 +1,4 @@
-import { Account } from "./contracts/Account"
+import { AccountContract } from "./contracts/AccountContract"
 import { Ownable } from "./contracts/Ownable"
 
-export { Account, Ownable }
+export { AccountContract, Ownable }
