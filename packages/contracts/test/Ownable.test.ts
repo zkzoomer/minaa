@@ -1,6 +1,6 @@
 import { Group, Mina, type VerificationKey } from "o1js"
-import { ensureFundedAccount, initLocalBlockchain } from "./test-utils"
 import { Ownable } from "../src/contracts/Ownable"
+import { ensureFundedAccount, initLocalBlockchain } from "./test-utils"
 
 const FEE = 100_000_000
 
