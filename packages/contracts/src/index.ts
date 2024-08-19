@@ -1,3 +1,4 @@
-import { Account } from "./contracts/Account"
+import { AccountContract } from "./contracts/AccountContract"
+import { AccountFactory } from "./contracts/AccountFactory"
 
-export { Account }
+export { AccountContract, AccountFactory }
