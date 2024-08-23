@@ -30,7 +30,7 @@ export class EcdsaProgramPublicInput extends Struct({
  * @param amount amount being transferred
  */
 export class UserOperationCallData extends Struct({
-    recepient: PublicKey,
+    recipient: PublicKey,
     amount: Field,
 }) {}
 
