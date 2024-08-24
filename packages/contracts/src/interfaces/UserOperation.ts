@@ -50,3 +50,13 @@ export class UserOperation extends Struct({
     fee: UInt64,
     signature: Ecdsa.provable,
 }) {}
+
+/**
+ * Nonce Sequence struct
+ * @param sender address of the account
+ * @param key nonce key
+ */
+export class NonceSequence extends Struct({
+    sender: PublicKey,
+    key: Field,
+}) {}
