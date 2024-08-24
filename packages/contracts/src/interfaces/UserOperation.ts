@@ -5,7 +5,8 @@ import {
     Crypto,
     Field,
     PublicKey,
-    Struct
+    Struct,
+    UInt64
 } from "o1js";
 
 // TODO: Adjust to secp256r1
@@ -31,7 +32,7 @@ export class EcdsaProgramPublicInput extends Struct({
  */
 export class UserOperationCallData extends Struct({
     recipient: PublicKey,
-    amount: Field,
+    amount: UInt64,
 }) {}
 
 /**
@@ -44,6 +45,8 @@ export class UserOperationCallData extends Struct({
 export class UserOperation extends Struct({
     sender: PublicKey,
     nonce: Field,
+    key: Field,
     calldata: UserOperationCallData,
+    fee: UInt64,
     signature: Ecdsa.provable,
 }) {}
