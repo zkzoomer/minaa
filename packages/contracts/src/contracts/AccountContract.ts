@@ -60,10 +60,7 @@ export class AccountContract extends IAccountContract {
     @method
     async execute(recipient: PublicKey, value: UInt64) {
         await this._requireFromEntryPoint()
-        AccountUpdate.createSigned(this.address).send({
-            to: recipient,
-            amount: value,
-        })
+        this.send({ to: recipient, amount: value, })
     }
 
     /**
