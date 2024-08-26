@@ -1,9 +1,7 @@
 import { Field, Mina, Poseidon, PublicKey, UInt64 } from "o1js"
 import { AccountContract } from "../src/contracts/AccountContract"
 import { Secp256k1, Secp256k1Scalar, Secp256k1Signature, UserOperation, UserOperationCallData } from "../src/interfaces/UserOperation"
-import { proofsEnabled, ensureFundedAccount, initLocalBlockchain, initAccountContract } from "./test-utils"
-
-const FEE = 1_000
+import { proofsEnabled, ensureFundedAccount, initLocalBlockchain, initAccountContract, FEE } from "./test-utils"
 
 // A private key is a random scalar of secp256k1
 const privateKey = Secp256k1Scalar.random()
