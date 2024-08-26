@@ -7,7 +7,7 @@ import { proofsEnabled, ensureFundedAccount, initLocalBlockchain, initAccountCon
 const privateKey = Secp256k1Scalar.random()
 const owner = Secp256k1.generator.scale(privateKey)
 
-// Define the entry point and owner
+// Define the entry point
 const entryPoint = Mina.TestPublicKey.random()
 
 describe("Ownable", () => {
