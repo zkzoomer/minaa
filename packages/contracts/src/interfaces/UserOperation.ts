@@ -41,6 +41,7 @@ export class UserOperationCallData extends Struct({
  * @param nonce unique value the sender uses to verify the operation is not a replay
  * @param calldata call to execute on this account
  * @param signature sender-verified signature for the request and EntryPoint address
+ * @param fee transaction fee
  */
 export class UserOperation extends Struct({
     sender: PublicKey,
@@ -48,7 +49,6 @@ export class UserOperation extends Struct({
     key: Field,
     calldata: UserOperationCallData,
     fee: UInt64,
-    signature: Ecdsa.provable,
 }) {}
 
 /**

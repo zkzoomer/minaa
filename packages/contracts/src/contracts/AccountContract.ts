@@ -1,8 +1,6 @@
 import {
-    AccountUpdate,
     Bool,
     DeployArgs,
-    EcdsaSignatureV2,
     Field,
     PublicKey,
     State,
@@ -11,7 +9,7 @@ import {
     state,
 } from "o1js"
 import { AccountInitializedEvent, IAccountContract } from "../interfaces/IAccountContract"
-import { Secp256k1, Secp256k1Scalar, UserOperation } from "../interfaces/UserOperation"
+import { Ecdsa, Secp256k1, Secp256k1Scalar, UserOperation } from "../interfaces/UserOperation"
 import { EntryPoint } from "./EntryPoint"
 
 export interface AccountContractDeployProps
@@ -48,7 +46,7 @@ export class AccountContract extends IAccountContract {
         // Define the account's `owner`
         this.owner.set(owner)
 
-        // Emits an `AccountInitializedEvent`
+        // Emits an `AccountInitialized`
         this.emitEvent('AccountInitialized', new AccountInitializedEvent({ entryPoint, account: this.address, owner }))
     }
 
@@ -63,21 +61,30 @@ export class AccountContract extends IAccountContract {
         this.send({ to: recipient, amount: value, })
     }
 
-    /**
-     * Validates a user operation
-     * @param userOperation user operation being validated
-     * @param userOperationHash packed Poseidon hash of the user operation
-     * @param missingAccountFunds funds that must be transferred to the `EntryPoint` smart contract to pay for the transaction
-     */
+    
+    /// @inheritdoc IAccountContract
     @method
     async validateUserOp(
-        userOperation: UserOperation,
         userOperationHash: Field,
+        signature: Ecdsa,
         missingAccountFunds: UInt64,
     ) {
         await this._requireFromEntryPoint()
-        await this._verifySignature(userOperationHash, userOperation.signature)
+        await this.verifySignature(userOperationHash, signature)
         await this._payPrefund(missingAccountFunds)
+    }
+
+    /**
+     * Validates that the signature is valid for the operation
+     * @param userOperationHash
+     * @param signature
+     * @param publicKey
+     */
+    async verifySignature(userOperationHash: Field, signature: Ecdsa) {
+        signature.verifySignedHashV2(
+            new Secp256k1Scalar([userOperationHash, Field(0), Field(0)]),
+            this.owner.getAndRequireEquals()
+        ).assertEquals(Bool(true))
     }
 
     /**
@@ -87,19 +94,6 @@ export class AccountContract extends IAccountContract {
         this.entryPoint
         .getAndRequireEquals()
         .assertEquals(this.sender.getAndRequireSignature())
-    }
-
-    /**
-     * Validates that the signature is valid for the operation
-     * @param userOperationHash
-     * @param signature
-     * @param publicKey
-     */
-    private async _verifySignature(userOperationHash: Field, signature: EcdsaSignatureV2) {
-        signature.verifySignedHashV2(
-            new Secp256k1Scalar([userOperationHash, Field(0), Field(0)]),
-            this.owner.getAndRequireEquals()
-        ).assertEquals(Bool(true))
     }
 
     /**
