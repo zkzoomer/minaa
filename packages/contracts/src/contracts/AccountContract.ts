@@ -1,4 +1,5 @@
 import {
+    AccountUpdate,
     Bool,
     DeployArgs,
     Field,
@@ -18,15 +19,19 @@ export interface AccountContractDeployProps
     owner: Secp256k1
 }
 
+// Defining the uninitialized state for the account contract
+const deadKey = Secp256k1Scalar.from(0xdead)
+const deadOwner = Secp256k1.generator.scale(deadKey)
+
 export class AccountContract extends IAccountContract {
     events = {
         AccountInitialized: AccountInitializedEvent,
     };
 
     @state(PublicKey)
-    entryPoint = State<PublicKey>()
+    entryPoint = State<PublicKey>(PublicKey.empty())
     @state(Secp256k1.provable)
-    owner = State<Secp256k1>()
+    owner = State<Secp256k1>(deadOwner)
 
     /**
      * Initializes the `AccountContract` smart contract
@@ -34,17 +39,20 @@ export class AccountContract extends IAccountContract {
      * @param owner The secp256k1 public key of the owner of this account smart contract
      */
     @method
-    async initialize(entryPoint: PublicKey, owner: Secp256k1) {
+    async initialize(entryPoint: PublicKey, owner: Secp256k1, prefund: UInt64) {
         // Check that the `AccountContract` was not already initialized
         this.entryPoint.getAndRequireEquals().assertEquals(PublicKey.empty())
         const _owner = this.owner.getAndRequireEquals()
-        _owner.x.assertEquals(Secp256k1Scalar.from('0'))
-        _owner.y.assertEquals(Secp256k1Scalar.from('0'))
+        _owner.x.assertEquals(deadOwner.x)
+        _owner.y.assertEquals(deadOwner.y)
 
         // Define the account's `entryPoint`
         this.entryPoint.set(entryPoint)
         // Define the account's `owner`
         this.owner.set(owner)
+
+        // Prefund the account with the transaction amount
+        AccountUpdate.createSigned(this.sender.getAndRequireSignature()).send({ to: this, amount: prefund });
 
         // Emits an `AccountInitialized`
         this.emitEvent('AccountInitialized', new AccountInitializedEvent({ entryPoint, account: this.address, owner }))
