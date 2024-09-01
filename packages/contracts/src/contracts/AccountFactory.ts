@@ -3,6 +3,7 @@ import {
     Experimental,
     Field,
     Permissions,
+    Provable,
     PublicKey,
     SmartContract,
     State,
@@ -19,7 +20,7 @@ import { AccountContract } from "./AccountContract"
  * @param sender the account that is deployed
  * @param factory the factory used to deploy this account
  */
-export class AccountDeployedEvent extends Struct({
+export class AccountAddedEvent extends Struct({
     sender: PublicKey,
     factory: PublicKey,
 }) {}
@@ -35,16 +36,14 @@ const accountVerificationKey = (await AccountContract.compile()).verificationKey
 
 export class AccountFactory extends SmartContract {
     events = {
-        AccountDeployed: AccountDeployedEvent,
+        AccountAdded: AccountAddedEvent,
     }
 
     // `EntryPoint` contract
     @state(PublicKey)
     entryPoint = State<PublicKey>()
     // Offchain storage commitment
-    @state(OffchainStateCommitments) offchainState = State(
-        OffchainStateCommitments.empty()
-    )
+    @state(OffchainState.Commitments) offchainState = accountFactoryOffchainState.commitments();
 
     /**
      * Initializes the `AccountFactory` smart contract
@@ -59,41 +58,28 @@ export class AccountFactory extends SmartContract {
     }
 
     /**
-     * Creates an account at the specified address
+     * Adds a deployed account at the specified address
      * @param owner The secp256k1 public key of the owner of the account, which must not be already defined
      * @param address The address where the account will be deployed to
      * @param prefund amount the account is prefunded with
      */
     @method
-    public async createAccount(owner: Secp256k1, address: PublicKey, prefund: UInt64) {
-        // Check if account already exists, in which case transaction is reverted it
-        const publicKey = await this.getPublicKey(owner)
-        publicKey.assertEquals(PublicKey.empty())
-
-        // Deploy account smart contract
-        const zkapp = AccountUpdate.createSigned(address)
-        zkapp.account.permissions.set({
-            ...Permissions.default(),
-            editState: Permissions.proofOrSignature(),
-            access: Permissions.proofOrSignature(),
-        })
-        zkapp.account.verificationKey.set(accountVerificationKey)
-
-        // Initialize the account smart contract
+    public async addAccount(address: PublicKey) {
+        // Instantiate the account contract
         const accountContract = new AccountContract(address)
-        await accountContract.initialize(this.entryPoint.getAndRequireEquals(), owner)
+        // Entry point must match
+        accountContract.entryPoint.getAndRequireEquals().assertEquals(this.entryPoint.getAndRequireEquals())
 
+        // Get the account owner
+        const owner = accountContract.owner.getAndRequireEquals()
         // Update offchain state
         accountFactoryOffchainState.fields.accounts.update(owner, {
-            from: publicKey,
+            from: PublicKey.empty(),
             to: address
         })
 
-        // Prefund the account with the transaction amount
-        AccountUpdate.createSigned(this.sender.getAndRequireSignature()).send({ to: this, amount: prefund });
-
-        // Emit an `AccountDeployed` event
-        this.emitEvent('AccountDeployed', new AccountDeployedEvent({ sender: this.sender.getAndRequireSignature(), factory: this.address }))
+        // Emit an `AccountAdded` event
+        this.emitEvent('AccountAdded', new AccountAddedEvent({ sender: this.sender.getAndRequireSignature(), factory: this.address }))
     }
 
     /**
@@ -101,6 +87,7 @@ export class AccountFactory extends SmartContract {
      * @param owner The secp256k1 public key of the owner of the account
      * @returns The public key of the account
      */
+    @method.returns(PublicKey)
     async getPublicKey(owner: Secp256k1): Promise<PublicKey> {
         return (await accountFactoryOffchainState.fields.accounts.get(owner)).orElse(PublicKey.empty())
     }
