@@ -3,7 +3,7 @@ import { AccountContract, AccountFactory } from "../src"
 import { Secp256k1 } from "../src/interfaces/UserOperation"
 import { accountFactoryOffchainState } from "../src/contracts/AccountFactory"
 
-export const proofsEnabled = false //process.env.SKIP_PROOFS !== "true"
+export const proofsEnabled = process.env.SKIP_PROOFS !== "true"
 if (!proofsEnabled) console.log("Skipping proof generation in tests.")
 
 export const FEE = 100_000_000
