@@ -24,16 +24,14 @@ describe("AccountFactory", () => {
     let accountFactory: AccountFactory
 
     beforeAll(async () => {
-        if (proofsEnabled) {
-            await accountFactoryOffchainState.compile()
-            await AccountFactory.compile()
-        }
+        if (proofsEnabled) await accountFactoryOffchainState.compile()
     })
 
     beforeEach(async () => {
         ({ localChain, zkApp, aliceAccount, deployer, sender } = await initLocalBlockchain())
         accountFactory = new AccountFactory(zkApp)
         accountFactoryOffchainState.setContractInstance(accountFactory)
+        if (proofsEnabled) await AccountFactory.compile()
         await ensureFundedAccount(zkApp.key)
     })
 
@@ -68,7 +66,7 @@ describe("AccountFactory", () => {
             await localDeploy()
         })
     })
-
+ 
     describe("initialize", () => {
         it("sets the `entryPoint`", async () => {
             await localDeploy()

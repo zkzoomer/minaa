@@ -13,7 +13,7 @@ const prefund = UInt64.from(350)
 // Define the entry point
 const entryPoint = Mina.TestPublicKey.random()
 
-describe("Ownable", () => {
+describe("AccountContract", () => {
     let deployer: Mina.TestPublicKey
     let sender: Mina.TestPublicKey
     let recipient: Mina.TestPublicKey
