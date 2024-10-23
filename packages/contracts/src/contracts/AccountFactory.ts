@@ -43,7 +43,8 @@ export class AccountFactory extends SmartContract {
     @state(PublicKey)
     entryPoint = State<PublicKey>()
     // Offchain storage commitment
-    @state(OffchainState.Commitments) offchainState = accountFactoryOffchainState.commitments();
+    @state(OffchainState.Commitments) offchainStateCommitments = accountFactoryOffchainState.emptyCommitments();
+    offchainState = accountFactoryOffchainState.init(this);
 
     /**
      * Initializes the `AccountFactory` smart contract
@@ -73,7 +74,7 @@ export class AccountFactory extends SmartContract {
         // Get the account owner
         const owner = accountContract.owner.getAndRequireEquals()
         // Update offchain state
-        accountFactoryOffchainState.fields.accounts.update(owner, {
+        this.offchainState.fields.accounts.update(owner, {
             from: PublicKey.empty(),
             to: address
         })
@@ -89,7 +90,7 @@ export class AccountFactory extends SmartContract {
      */
     @method.returns(PublicKey)
     async getPublicKey(owner: Secp256k1): Promise<PublicKey> {
-        return (await accountFactoryOffchainState.fields.accounts.get(owner)).orElse(PublicKey.empty())
+        return (await this.offchainState.fields.accounts.get(owner)).orElse(PublicKey.empty())
     }
 
     /**
@@ -98,6 +99,6 @@ export class AccountFactory extends SmartContract {
      */
     @method
     async settle(proof: AccountFactoryStateProof) {
-        await accountFactoryOffchainState.settle(proof)
+        await this.offchainState.settle(proof)
     }
 }

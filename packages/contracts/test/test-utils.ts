@@ -107,7 +107,7 @@ export const addAccountToFactory = async (
     await tx.sign([deployer.key]).send()
 
     // Settle all outstanding state changes
-    let proof = await accountFactoryOffchainState.createSettlementProof()
+    let proof = await accountFactory.offchainState.createSettlementProof()
     const settleTx = await Mina.transaction(
         { sender: deployer, fee: FEE },
         async () => {

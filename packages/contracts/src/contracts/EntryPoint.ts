@@ -12,7 +12,7 @@ import {
     state,
 } from "o1js"
 import { DepositedEvent, IEntryPoint, UserOperationEvent, WithdrawnEvent } from "../interfaces/IEntryPoint"
-import { NonceSequence, UserOperation } from "../interfaces/UserOperation"
+import { Ecdsa, NonceSequence, UserOperation } from "../interfaces/UserOperation"
 import { AccountContract } from "./AccountContract"
 
 // Offchain storage definition
@@ -31,18 +31,17 @@ export class EntryPoint extends IEntryPoint {
     };
 
     // Offchain storage commitment
-    @state(OffchainStateCommitments) offchainState = State(
-        OffchainStateCommitments.empty()
-    )
+    @state(OffchainState.Commitments) offchainStateCommitments = entryPointOffchainState.emptyCommitments();
+    offchainState = entryPointOffchainState.init(this);
 
     /// @inheritdoc IEntryPoint
     async getNonce(sender: PublicKey, key: Field): Promise<Field> {
-        return (await entryPointOffchainState.fields.nonceSequenceNumber.get({ sender, key })).orElse(Field(0))
+        return (await this.offchainState.fields.nonceSequenceNumber.get({ sender, key })).orElse(Field(0))
     }
 
     /// @inheritdoc IEntryPoint
     async balanceOf(account: PublicKey): Promise<UInt64> {
-        return (await entryPointOffchainState.fields.depositInfo.get(account)).orElse(UInt64.from(0))
+        return (await this.offchainState.fields.depositInfo.get(account)).orElse(UInt64.from(0))
     }
 
     /// @inheritdoc IEntryPoint
@@ -53,7 +52,7 @@ export class EntryPoint extends IEntryPoint {
 
         // Update the offchain state
         const oldAmount = await this.balanceOf(account)
-        await entryPointOffchainState.fields.depositInfo.update(account, {
+        await this.offchainState.fields.depositInfo.update(account, {
             from: oldAmount,
             to: oldAmount.add(amount)
         })
@@ -72,7 +71,7 @@ export class EntryPoint extends IEntryPoint {
         // Update the offchain state
         const oldAmount = await this.balanceOf(account)
         oldAmount.assertGreaterThanOrEqual(amount)
-        await entryPointOffchainState.fields.depositInfo.update(account, {
+        await this.offchainState.fields.depositInfo.update(account, {
             from: oldAmount,
             to: oldAmount.sub(amount)
         })
@@ -86,9 +85,13 @@ export class EntryPoint extends IEntryPoint {
 
     /// @inheritdoc IEntryPoint
     @method
-    async handleOp(userOp: UserOperation, beneficiary: PublicKey): Promise<Void> {
+    async handleOp(
+        userOp: UserOperation,
+        signature: Ecdsa,
+        beneficiary: PublicKey
+    ): Promise<Void> {
         const requiredPrefund = await this._getRequiredPrefund(userOp)
-        const userOpHash = await this._validatePrepayment(userOp, requiredPrefund)
+        const userOpHash = await this._validatePrepayment(userOp, signature, requiredPrefund)
         await this._executeUserOp(userOp)
         await this._compensate(beneficiary, requiredPrefund)
 
@@ -119,7 +122,7 @@ export class EntryPoint extends IEntryPoint {
         nonce.assertEquals(_nonce)
 
         // Update offchain state
-        entryPointOffchainState.fields.nonceSequenceNumber.update({ sender, key }, {
+        this.offchainState.fields.nonceSequenceNumber.update({ sender, key }, {
             from: nonce,
             to: nonce.add(Field(1))
         })
@@ -128,17 +131,26 @@ export class EntryPoint extends IEntryPoint {
     /**
      * Validates account and ensures there is enough funds in the contract to pay for the gas fee
      */
-    private async _validatePrepayment(userOp: UserOperation, requiredPrefund: UInt64): Promise<Field> {
+    private async _validatePrepayment(
+        userOp: UserOperation,
+        signature: Ecdsa,
+        requiredPrefund: UInt64
+    ): Promise<Field> {
         await this._validateAndUpdateNonce(userOp.sender, userOp.key, userOp.nonce)
-        return this._validateAccountPrepayment(userOp, requiredPrefund)
+        return this._validateAccountPrepayment(userOp, signature, requiredPrefund)
     }
 
     /**
      * Calls `validateUserOp` on the corresponding account, reverts if failed validation or no required prefund
      * @param userOp 
+     * @param signature
      * @param requiredPrefund 
      */
-    private async _validateAccountPrepayment(userOp: UserOperation, requiredPrefund: UInt64): Promise<Field> {
+    private async _validateAccountPrepayment(
+        userOp: UserOperation,
+        signature: Ecdsa,
+        requiredPrefund: UInt64
+    ): Promise<Field> {
         // Compute the `userOpHash`
         const userOpHash = await this.getUserOpHash(userOp)
 
@@ -148,11 +160,11 @@ export class EntryPoint extends IEntryPoint {
 
         // Validate the operation and receive the missing funds, if any
         const accountContract = new AccountContract(userOp.sender)
-        await accountContract.validateUserOp(userOp, userOpHash, missingAccountFunds)
+        await accountContract.validateUserOp(userOpHash, signature, missingAccountFunds)
 
         // Decrease the deposited amount for the account by the required prefund, which will be sent to the beneficiary
         const oldAmount = await this.balanceOf(userOp.sender)
-        await entryPointOffchainState.fields.depositInfo.update(userOp.sender, {
+        await this.offchainState.fields.depositInfo.update(userOp.sender, {
             from: oldAmount,
             to: oldAmount.sub(requiredPrefund)
         })
@@ -196,6 +208,6 @@ export class EntryPoint extends IEntryPoint {
      */
     @method
     async settle(proof: EntryPointStateProof) {
-        await entryPointOffchainState.settle(proof) 
+        await this.offchainState.settle(proof) 
     }
 }

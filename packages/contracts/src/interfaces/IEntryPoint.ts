@@ -6,7 +6,7 @@ import {
     UInt64,
     Void,
 } from "o1js"
-import { UserOperation } from "./UserOperation"
+import { Ecdsa, UserOperation } from "./UserOperation"
 
 /**
  * An event emitted after a given `amount` is credited to an account
@@ -78,9 +78,10 @@ export abstract class IEntryPoint extends SmartContract {
     /**
      * Executes a `UserOperation`
      * @param userOp user operation being executed
+     * @param signature user operation signature
      * @param beneficiary address to receive the fees
      */
-    abstract handleOp(userOp: UserOperation, beneficiary: PublicKey): Promise<Void>
+    abstract handleOp(userOp: UserOperation, signature: Ecdsa, beneficiary: PublicKey): Promise<Void>
 
     /**
      * Generate a request ID - unique identifier for this request

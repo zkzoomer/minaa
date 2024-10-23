@@ -30,7 +30,7 @@ describe("AccountFactory", () => {
     beforeEach(async () => {
         ({ localChain, zkApp, aliceAccount, deployer, sender } = await initLocalBlockchain())
         accountFactory = new AccountFactory(zkApp)
-        accountFactoryOffchainState.setContractInstance(accountFactory)
+        accountFactory.offchainState.setContractInstance(accountFactory)
         if (proofsEnabled) await AccountFactory.compile()
         await ensureFundedAccount(zkApp.key)
     })
