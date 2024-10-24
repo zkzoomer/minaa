@@ -1,21 +1,17 @@
 import {
     AccountUpdate,
     Bool,
-    type DeployArgs,
-    type EcdsaSignatureV2,
+    DeployArgs,
     Field,
     PublicKey,
     State,
-    type UInt64,
+    UInt64,
     method,
     state,
 } from "o1js"
-import { IAccountContract } from "../interfaces/IAccountContract"
-import {
-    type Bytes32,
-    Secp256k1,
-    type UserOperation,
-} from "../interfaces/UserOperation"
+import { AccountInitializedEvent, IAccountContract } from "../interfaces/IAccountContract"
+import { Ecdsa, Secp256k1, Secp256k1Scalar, UserOperation } from "../interfaces/UserOperation"
+import { EntryPoint } from "./EntryPoint"
 
 export interface AccountContractDeployProps
     extends Exclude<DeployArgs, undefined> {
@@ -23,42 +19,43 @@ export interface AccountContractDeployProps
     owner: Secp256k1
 }
 
+// Defining the uninitialized state for the account contract
+const deadKey = Secp256k1Scalar.from(0xdead)
+const deadOwner = Secp256k1.generator.scale(deadKey)
+
 export class AccountContract extends IAccountContract {
+    events = {
+        AccountInitialized: AccountInitializedEvent,
+    };
+
     @state(PublicKey)
-    entryPoint = State<PublicKey>()
+    entryPoint = State<PublicKey>(PublicKey.empty())
     @state(Secp256k1.provable)
-    owner = State<Secp256k1>()
+    owner = State<Secp256k1>(deadOwner)
 
-    @method.returns(Field)
-    async getNonce(): Promise<Field> {
-        return Field(0)
-    }
-
-    @method.returns(Bool)
-    async validateUserOp(
-        userOperation: UserOperation,
-        userOperationHash: Bytes32,
-        missingAccountFunds: UInt64,
-    ): Promise<Bool> {
-        this._requireFromEntryPoint()
-        const validationData = this._verifySignature(
-            userOperationHash,
-            userOperation.signature,
-        )
-        this._payPrefund(missingAccountFunds)
-        return validationData
-    }
-
-    async getDeposit(): Promise<Field> {
-        return Field(0)
-    }
-
+    /**
+     * Initializes the `AccountContract` smart contract
+     * @param entryPoint The `EntryPoint` smart contract
+     * @param owner The secp256k1 public key of the owner of this account smart contract
+     */
     @method
-    async addDeposit(amount: UInt64) {
-        AccountUpdate.createSigned(this.address).send({
-            to: this.entryPoint.getAndRequireEquals(),
-            amount,
-        })
+    async initialize(entryPoint: PublicKey, owner: Secp256k1, prefund: UInt64) {
+        // Check that the `AccountContract` was not already initialized
+        this.entryPoint.getAndRequireEquals().assertEquals(PublicKey.empty())
+        const _owner = this.owner.getAndRequireEquals()
+        _owner.x.assertEquals(deadOwner.x)
+        _owner.y.assertEquals(deadOwner.y)
+
+        // Define the account's `entryPoint`
+        this.entryPoint.set(entryPoint)
+        // Define the account's `owner`
+        this.owner.set(owner)
+
+        // Prefund the account with the transaction amount
+        AccountUpdate.createSigned(this.sender.getAndRequireSignature()).send({ to: this, amount: prefund });
+
+        // Emits an `AccountInitialized`
+        this.emitEvent('AccountInitialized', new AccountInitializedEvent({ entryPoint, account: this.address, owner }))
     }
 
     /**
@@ -66,12 +63,36 @@ export class AccountContract extends IAccountContract {
      * @param recipient transaction recipient
      * @param value amount being transferred
      */
-    private async _execute(recipient: PublicKey, value: UInt64) {
-        this._requireFromEntryPoint()
-        AccountUpdate.createSigned(this.address).send({
-            to: recipient,
-            amount: value,
-        })
+    @method
+    async execute(recipient: PublicKey, value: UInt64) {
+        await this._requireFromEntryPoint()
+        this.send({ to: recipient, amount: value, })
+    }
+
+    
+    /// @inheritdoc IAccountContract
+    @method
+    async validateUserOp(
+        userOperationHash: Field,
+        signature: Ecdsa,
+        missingAccountFunds: UInt64,
+    ) {
+        await this._requireFromEntryPoint()
+        await this.verifySignature(userOperationHash, signature)
+        await this._payPrefund(missingAccountFunds)
+    }
+
+    /**
+     * Validates that the signature is valid for the operation
+     * @param userOperationHash
+     * @param signature
+     * @param publicKey
+     */
+    async verifySignature(userOperationHash: Field, signature: Ecdsa) {
+        signature.verifySignedHashV2(
+            new Secp256k1Scalar([userOperationHash, Field(0), Field(0)]),
+            this.owner.getAndRequireEquals()
+        ).assertEquals(Bool(true))
     }
 
     /**
@@ -84,26 +105,10 @@ export class AccountContract extends IAccountContract {
     }
 
     /**
-     * Validates that the signature is valid for the operation
-     * @param userOperationHash
-     * @param signature
-     * @param publicKey
-     * @returns
+     * Prefund the `EntryPoint` gas for this transaction
+     * @param missingAccountFunds Amount to be prefunded
      */
-    private async _verifySignature(
-        userOperationHash: Bytes32,
-        signature: EcdsaSignatureV2,
-    ): Promise<Bool> {
-            return signature.verifyV2(
-                userOperationHash,
-                this.owner.getAndRequireEquals(),
-            )
-    }
-
     private async _payPrefund(missingAccountFunds: UInt64) {
-        AccountUpdate.createSigned(this.address).send({
-            to: this.entryPoint.getAndRequireEquals(),
-            amount: missingAccountFunds,
-        })
+        await (new EntryPoint(this.entryPoint.getAndRequireEquals())).depositTo(this.address, missingAccountFunds)
     }
 }

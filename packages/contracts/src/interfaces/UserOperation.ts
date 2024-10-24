@@ -1,13 +1,13 @@
 import {
     Bytes,
+    createEcdsaV2,
+    createForeignCurveV2,
     Crypto,
-    EcdsaSignatureV2,
     Field,
     PublicKey,
     Struct,
-    createEcdsaV2,
-    createForeignCurveV2,
-} from "o1js"
+    UInt64
+} from "o1js";
 
 // TODO: Adjust to secp256r1
 export class Secp256k1 extends createForeignCurveV2(
@@ -20,14 +20,19 @@ export class Secp256k1Signature extends createEcdsaV2(Secp256k1) {}
 export class Ecdsa extends createEcdsaV2(Secp256k1) {}
 export class Bytes32 extends Bytes(32) {}
 
+export class EcdsaProgramPublicInput extends Struct({
+    message: Bytes32.provable,
+    publicKey: Secp256k1.provable,
+}) {}
+
 /**
  * User Operation calldata
  * @param recipient recepient of the transaction
  * @param amount amount being transferred
  */
 export class UserOperationCallData extends Struct({
-    recepient: PublicKey,
-    amount: Field,
+    recipient: PublicKey,
+    amount: UInt64,
 }) {}
 
 /**
@@ -36,10 +41,22 @@ export class UserOperationCallData extends Struct({
  * @param nonce unique value the sender uses to verify the operation is not a replay
  * @param calldata call to execute on this account
  * @param signature sender-verified signature for the request and EntryPoint address
+ * @param fee transaction fee
  */
 export class UserOperation extends Struct({
     sender: Secp256k1.provable,
     nonce: Field,
+    key: Field,
     calldata: UserOperationCallData,
-    signature: Ecdsa.provable,
+    fee: UInt64,
+}) {}
+
+/**
+ * Nonce Sequence struct
+ * @param sender address of the account
+ * @param key nonce key
+ */
+export class NonceSequence extends Struct({
+    sender: PublicKey,
+    key: Field,
 }) {}
