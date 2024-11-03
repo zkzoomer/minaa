@@ -80,7 +80,7 @@ export class AccountFactory extends SmartContract {
         })
 
         // Emit an `AccountAdded` event
-        this.emitEvent('AccountAdded', new AccountAddedEvent({ sender: this.sender.getAndRequireSignature(), factory: this.address }))
+        this.emitEvent('AccountAdded', new AccountAddedEvent({ sender: this.sender.getAndRequireSignatureV2(), factory: this.address }))
     }
 
     /**

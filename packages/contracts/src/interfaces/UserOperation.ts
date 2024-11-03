@@ -44,7 +44,7 @@ export class UserOperationCallData extends Struct({
  * @param fee transaction fee
  */
 export class UserOperation extends Struct({
-    sender: Secp256k1.provable,
+    sender: PublicKey,
     nonce: Field,
     key: Field,
     calldata: UserOperationCallData,

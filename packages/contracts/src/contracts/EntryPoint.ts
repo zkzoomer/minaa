@@ -48,7 +48,7 @@ export class EntryPoint extends IEntryPoint {
     @method
     async depositTo(account: PublicKey, amount: UInt64): Promise<Void> {
         // Deposit the amount to the smart contract
-        AccountUpdate.createSigned(this.sender.getAndRequireSignature()).send({ to: this, amount });
+        AccountUpdate.createSigned(this.sender.getAndRequireSignatureV2()).send({ to: this, amount });
 
         // Update the offchain state
         const oldAmount = await this.balanceOf(account)
