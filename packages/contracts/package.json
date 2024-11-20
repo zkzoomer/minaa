@@ -18,6 +18,6 @@
     "ts-jest": "^29.2.2"
   },
   "peerDependencies": {
-    "o1js": "1.9.1"
+    "o1js": "2.0.0"
   }
 }
