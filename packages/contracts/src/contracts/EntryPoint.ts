@@ -2,6 +2,7 @@ import {
     AccountUpdate,
     Experimental,
     Field,
+    Option,
     Poseidon,
     Provable,
     PublicKey,
@@ -37,25 +38,34 @@ export class EntryPoint extends IEntryPoint {
 
     /// @inheritdoc IEntryPoint
     async getNonce(sender: PublicKey, key: Field): Promise<Field> {
-        return (await this.offchainState.fields.nonceSequenceNumber.get({ sender, key })).orElse(Field(0))
+        return (await this._getNonce(sender, key)).orElse(Field(0))
+    }
+
+    async _getNonce(sender: PublicKey, key: Field): Promise<Option<Field>> {
+        return this.offchainState.fields.nonceSequenceNumber.get({ sender, key })
     }
 
     /// @inheritdoc IEntryPoint
     @method
     async incrementNonce(key: Field): Promise<Void> {
         const sender = this.sender.getAndRequireSignatureV2()
-        const nonce = await this.getNonce(sender, key);
+        const nonceOption = await this._getNonce(sender, key)
+        const nonce = nonceOption.orElse(Field(0))
         const newNonce = nonce.add(Field(1))
 
         await this.offchainState.fields.nonceSequenceNumber.update({ sender, key }, {
-            from: undefined,
+            from: nonceOption,
             to: newNonce
         })
     }
 
     /// @inheritdoc IEntryPoint
     async balanceOf(account: PublicKey): Promise<UInt64> {
-        return (await this.offchainState.fields.depositInfo.get(account)).orElse(UInt64.from(0))
+        return (await this._balanceOf(account)).orElse(UInt64.from(0))
+    }
+
+    async _balanceOf(account: PublicKey): Promise<Option<UInt64>> {
+        return this.offchainState.fields.depositInfo.get(account)
     }
 
     /// @inheritdoc IEntryPoint
@@ -132,12 +142,13 @@ export class EntryPoint extends IEntryPoint {
         _nonce: Field,
     ) {
         // Get current nonce
-        const nonce = await this.getNonce(sender, key)
+        const nonceOption = await this._getNonce(sender, key)
+        const nonce = nonceOption.orElse(Field(0))
         nonce.assertEquals(_nonce)
 
         // Update offchain state
         this.offchainState.fields.nonceSequenceNumber.update({ sender, key }, {
-            from: nonce,
+            from: nonceOption,
             to: nonce.add(Field(1))
         })
     }
@@ -177,9 +188,10 @@ export class EntryPoint extends IEntryPoint {
         await accountContract.validateUserOp(userOpHash, signature, missingAccountFunds)
 
         // Decrease the deposited amount for the account by the required prefund, which will be sent to the beneficiary
-        const oldAmount = await this.balanceOf(userOp.sender)
+        const oldAmountOption = await this._balanceOf(userOp.sender)
+        const oldAmount = oldAmountOption.orElse(UInt64.from(0))
         await this.offchainState.fields.depositInfo.update(userOp.sender, {
-            from: oldAmount,
+            from: oldAmountOption,
             to: oldAmount.sub(requiredPrefund)
         })
 
