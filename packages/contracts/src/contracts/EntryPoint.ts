@@ -3,6 +3,7 @@ import {
     Experimental,
     Field,
     Poseidon,
+    Provable,
     PublicKey,
     State,
     Struct,
@@ -17,11 +18,11 @@ import { AccountContract } from "./AccountContract"
 
 // Offchain storage definition
 const { OffchainState, OffchainStateCommitments } = Experimental
-export const entryPointOffchainState = OffchainState({
+export const offchainState = OffchainState({
     nonceSequenceNumber: OffchainState.Map(NonceSequence, Field),
     depositInfo: OffchainState.Map(PublicKey, UInt64),
 })
-export class EntryPointStateProof extends entryPointOffchainState.Proof {}
+export class EntryPointStateProof extends offchainState.Proof {}
 
 export class EntryPoint extends IEntryPoint {
     events = {
@@ -31,12 +32,25 @@ export class EntryPoint extends IEntryPoint {
     };
 
     // Offchain storage commitment
-    @state(OffchainState.Commitments) offchainStateCommitments = entryPointOffchainState.emptyCommitments();
-    offchainState = entryPointOffchainState.init(this);
+    @state(OffchainState.Commitments) offchainStateCommitments = offchainState.emptyCommitments()
+    offchainState = offchainState.init(this);
 
     /// @inheritdoc IEntryPoint
     async getNonce(sender: PublicKey, key: Field): Promise<Field> {
         return (await this.offchainState.fields.nonceSequenceNumber.get({ sender, key })).orElse(Field(0))
+    }
+
+    /// @inheritdoc IEntryPoint
+    @method
+    async incrementNonce(key: Field): Promise<Void> {
+        const sender = this.sender.getAndRequireSignatureV2()
+        const nonce = await this.getNonce(sender, key);
+        const newNonce = nonce.add(Field(1))
+
+        await this.offchainState.fields.nonceSequenceNumber.update({ sender, key }, {
+            from: undefined,
+            to: newNonce
+        })
     }
 
     /// @inheritdoc IEntryPoint
@@ -48,7 +62,7 @@ export class EntryPoint extends IEntryPoint {
     @method
     async depositTo(account: PublicKey, amount: UInt64): Promise<Void> {
         // Deposit the amount to the smart contract
-        AccountUpdate.createSigned(this.sender.getAndRequireSignatureV2()).send({ to: this, amount });
+        AccountUpdate.createSigned(this.sender.getAndRequireSignatureV2()).send({ to: this, amount })
 
         // Update the offchain state
         const oldAmount = await this.balanceOf(account)

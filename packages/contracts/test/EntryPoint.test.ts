@@ -1,7 +1,7 @@
-import { Mina, VerificationKey } from "o1js"
-import { EntryPoint, entryPointOffchainState } from "../src/contracts/EntryPoint"
+import { Field,PublicKey,  Mina } from "o1js"
+import { EntryPoint, offchainState } from "../src/contracts/EntryPoint"
 import { Bytes32, Secp256k1, Secp256k1Scalar } from "../src/interfaces/UserOperation"
-import { ensureFundedAccount, initLocalBlockchain, proofsEnabled } from "./test-utils"
+import { initLocalBlockchain, proofsEnabled } from "./test-utils"
 
 const FEE = 100_000_000
 
@@ -16,29 +16,24 @@ describe("EntryPoint", () => {
     let deployer: Mina.TestPublicKey
     let zkApp: Mina.TestPublicKey
     let entryPoint: EntryPoint
-    let verificationKey: VerificationKey
 
     beforeAll(async () => {
-        if (proofsEnabled) {
-            await entryPointOffchainState.compile()
-            verificationKey = (await EntryPoint.compile()).verificationKey
-        }
-    })
-
-    beforeEach(async () => {
         const localChain = await initLocalBlockchain()
         deployer = localChain.deployer
         zkApp = localChain.zkApp
         entryPoint = new EntryPoint(zkApp)
         entryPoint.offchainState.setContractInstance(entryPoint)
-        await ensureFundedAccount(zkApp.key)
+
+        if (proofsEnabled) {
+            await offchainState.compile()
+            await EntryPoint.compile()
+        }
     })
 
     async function localDeploy() {
         const tx = await Mina.transaction(
             { sender: deployer, fee: FEE },
             async () => {
-                await ensureFundedAccount(deployer.key)
                 await entryPoint.deploy()
             },
         )
@@ -51,4 +46,42 @@ describe("EntryPoint", () => {
             await localDeploy()
         })
     })
+
+    describe("getNonce", () => {
+        it("returns 0 for a non-existent sender", async () => {
+            await localDeploy()
+
+            const nonce = await entryPoint.getNonce(PublicKey.empty(), Field(0))
+            expect(nonce.toString()).toEqual(Field(0).toString())
+        })
+    })
+
+    describe("incrementNonce", () => {
+        it("increments the nonce", async () => {
+            await localDeploy()
+
+            const tx = await Mina.transaction(
+                { sender: deployer, fee: FEE },
+                async () => {
+                    await entryPoint.incrementNonce(Field(350))
+                },
+            )
+            await tx.prove()
+            await tx.sign([deployer.key]).send()
+            await settle(entryPoint, deployer)
+
+            const nonce = await entryPoint.getNonce(deployer.key.toPublicKey(), Field(350))
+            expect(nonce.toString()).toEqual(Field(1).toString())
+        })
+    })
 })
+
+// HELPER FUNCTIONS
+async function settle(contract: EntryPoint, sender: Mina.TestPublicKey) {
+    const proof = await contract.offchainState.createSettlementProof();
+    const tx = Mina.transaction(sender, async () => {
+        await contract.settle(proof);
+    });
+    tx.sign([sender.key]);
+    await tx.prove().send().wait();
+}
