@@ -54,13 +54,6 @@ export abstract class IEntryPoint extends SmartContract {
     abstract getNonce(sender: PublicKey, key: Field): Promise<Field>
 
     /**
-     * Manually increments the nonce of the sender
-     * This method is exposed just for completeness, no need to use it in the SDK
-     * @param key the high 192 bit of the nonce
-     */
-    abstract incrementNonce(key: Field): Promise<Void>
-
-    /**
      * Gets the deposited amount for an account
      * @param account account being checked
      * @returns the deposited amount

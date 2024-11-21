@@ -55,27 +55,6 @@ describe("EntryPoint", () => {
             expect(nonce.toString()).toEqual(Field(0).toString())
         })
     })
-
-    describe("incrementNonce", () => {
-        it("increments the nonce", async () => {
-            await localDeploy()
-
-            for (let i = 1; i <= 2; i++) {
-                const tx = await Mina.transaction(
-                { sender: deployer, fee: FEE },
-                async () => {
-                        await entryPoint.incrementNonce(Field(350))
-                    },
-                )
-                await tx.prove()
-                await tx.sign([deployer.key]).send()
-                await settle(entryPoint, deployer)
-
-                const nonce = await entryPoint.getNonce(deployer.key.toPublicKey(), Field(350))
-                expect(nonce.toString()).toEqual(Field(i).toString())
-            }
-        })
-    })
 })
 
 // HELPER FUNCTIONS

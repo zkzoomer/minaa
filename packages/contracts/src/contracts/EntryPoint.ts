@@ -46,20 +46,6 @@ export class EntryPoint extends IEntryPoint {
     }
 
     /// @inheritdoc IEntryPoint
-    @method
-    async incrementNonce(key: Field): Promise<Void> {
-        const sender = this.sender.getAndRequireSignatureV2()
-        const nonceOption = await this._getNonce(sender, key)
-        const nonce = nonceOption.orElse(Field(0))
-        const newNonce = nonce.add(Field(1))
-
-        await this.offchainState.fields.nonceSequenceNumber.update({ sender, key }, {
-            from: nonceOption,
-            to: newNonce
-        })
-    }
-
-    /// @inheritdoc IEntryPoint
     async balanceOf(account: PublicKey): Promise<UInt64> {
         return (await this._balanceOf(account)).orElse(UInt64.from(0))
     }
