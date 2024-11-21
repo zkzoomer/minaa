@@ -15,8 +15,7 @@ export const initLocalBlockchain = async () => {
     })
     Mina.setActiveInstance(localChain)
 
-    const zkApp = Mina.TestPublicKey.random()
-    const [deployer, aliceAccount, bobAccount, sender, recipient] = localChain.testAccounts
+    const [deployer, aliceAccount, bobAccount, sender, recipient,zkApp] = localChain.testAccounts
 
     return {
         localChain,
