@@ -4,16 +4,14 @@ import {
     Field,
     Option,
     Poseidon,
-    Provable,
     PublicKey,
-    State,
     Struct,
     UInt64,
     Void,
     method,
     state,
 } from "o1js"
-import { DepositedEvent, IEntryPoint, UserOperationEvent, WithdrawnEvent } from "../interfaces/IEntryPoint"
+import { DepositedEvent, IEntryPoint, UserOperationEvent, Withdrawal, WithdrawnEvent } from "../interfaces/IEntryPoint"
 import { Ecdsa, NonceSequence, UserOperation } from "../interfaces/UserOperation"
 import { AccountContract } from "./AccountContract"
 
@@ -61,9 +59,10 @@ export class EntryPoint extends IEntryPoint {
         AccountUpdate.createSigned(this.sender.getAndRequireSignatureV2()).send({ to: this, amount })
 
         // Update the offchain state
-        const oldAmount = await this.balanceOf(account)
+        const oldAmountOption = await this._balanceOf(account)
+        const oldAmount = oldAmountOption.orElse(UInt64.from(0))
         await this.offchainState.fields.depositInfo.update(account, {
-            from: oldAmount,
+            from: oldAmountOption,
             to: oldAmount.add(amount)
         })
 
@@ -77,7 +76,13 @@ export class EntryPoint extends IEntryPoint {
         account: PublicKey,
         recipient: PublicKey,
         amount: UInt64,
+        signature: Ecdsa,
     ): Promise<Void> {
+        // Withdrawal operation must have be validated by the account
+        let accountContract = new AccountContract(account)
+        let withdrawToHash = Poseidon.hashPacked(Withdrawal, new Withdrawal({ account, recipient, amount }))
+        await accountContract.verifySignature(withdrawToHash, signature)
+
         // Update the offchain state
         const oldAmount = await this.balanceOf(account)
         oldAmount.assertGreaterThanOrEqual(amount)
@@ -87,7 +92,7 @@ export class EntryPoint extends IEntryPoint {
         })
 
         // Withdraw the amount to the recipient
-        AccountUpdate.createSigned(this.address).send({ to: recipient, amount });
+        this.send({ to: recipient, amount });
 
         // Emits a `Withdrawn` event
         this.emitEvent('Withdrawn', new WithdrawnEvent({ account, recipient, amount }))

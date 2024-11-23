@@ -8,6 +8,19 @@ import {
 } from "o1js"
 import { Ecdsa, UserOperation } from "./UserOperation"
 
+
+/**
+ * Withdrawal struct
+ * @param account the account being withdrawn from
+ * @param recipient the recipient of the withdrawal
+ * @param amount the amount being withdrawn
+ */
+export class Withdrawal extends Struct({
+    account: PublicKey,
+    recipient: PublicKey,
+    amount: UInt64,
+}) {}
+
 /**
  * An event emitted after a given `amount` is credited to an account
  * @param account the account being credited
@@ -68,12 +81,13 @@ export abstract class IEntryPoint extends SmartContract {
     abstract depositTo(account: PublicKey, amount: UInt64): Promise<Void>
 
     /**
-     * Withdraws from an account's deposit
+     * Withdraws from an account's deposit. This will call the account's contract to validate the withdrawal.
      * @param account account being withdrawn from
      * @param recipient account receiving the withdrawn amount
      * @param amount amount being withdrawn 
+     * @param signature user operation signature
      */
-    abstract withdrawTo(account: PublicKey, recipient: PublicKey, amount: UInt64): Promise<Void>
+    abstract withdrawTo(account: PublicKey, recipient: PublicKey, amount: UInt64, signature: Ecdsa): Promise<Void>
 
     /**
      * Executes a `UserOperation`
