@@ -30,4 +30,14 @@ export abstract class IAccountContract extends SmartContract {
         signature: Ecdsa,
         missingAccountFunds: UInt64,
     ): Promise<void>
+
+    /**
+     * Validates that the given signature of the operation hash is valid for the account's owner
+     * @param userOperationHash hash of the request data, used as the basis for the signature
+     * @param signature user operation signature
+     */
+    abstract verifySignature(
+        userOperationHash: Field,
+        signature: Ecdsa,
+    ): Promise<void>
 }
