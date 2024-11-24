@@ -1,15 +1,15 @@
 import {
-    AccountUpdate,
     Bool,
     DeployArgs,
     Field,
     PublicKey,
     State,
+    Struct,
     UInt64,
     method,
     state,
 } from "o1js"
-import { AccountInitializedEvent, IAccountContract } from "../interfaces/IAccountContract"
+import { IAccountContract } from "../interfaces/IAccountContract"
 import { Ecdsa, Secp256k1, Secp256k1Scalar, UserOperation } from "../interfaces/UserOperation"
 import { EntryPoint } from "./EntryPoint"
 
@@ -18,6 +18,19 @@ export interface AccountContractDeployProps
     entryPoint: PublicKey
     owner: Secp256k1
 }
+
+/***
+ * An event emitted after each successful request
+ * @param userOpHash unique identifier for the request (hash its entire content, except signature)
+ * @param sender the account that generates this request
+ * @param key the nonce key value from the request
+ * @param nonce the nonce value from the request
+ */
+export class AccountInitializedEvent extends Struct({
+    entryPoint: PublicKey,
+    account: PublicKey,
+    owner: Secp256k1.provable,
+}) {}
 
 // Defining the uninitialized state for the account contract
 const deadKey = Secp256k1Scalar.from(0xdead)

@@ -1,18 +1,4 @@
-import { Bool, Field, PublicKey, SmartContract, Struct, UInt64 } from "o1js";
-import { Ecdsa, Secp256k1 } from "./UserOperation";
-
-/***
- * An event emitted after each successful request
- * @param userOpHash unique identifier for the request (hash its entire content, except signature)
- * @param sender the account that generates this request
- * @param key the nonce key value from the request
- * @param nonce the nonce value from the request
- */
-export class AccountInitializedEvent extends Struct({
-    entryPoint: PublicKey,
-    account: PublicKey,
-    owner: Secp256k1.provable,
-}) {}
+import { Field, SmartContract, UInt64 } from "o1js";
 
 export abstract class IAccountContract extends SmartContract {
     /**
@@ -27,17 +13,17 @@ export abstract class IAccountContract extends SmartContract {
      */
     abstract validateUserOp(
         userOperationHash: Field,
-        signature: Ecdsa,
+        signature: any,
         missingAccountFunds: UInt64,
     ): Promise<void>
 
     /**
      * Validates that the given signature of the operation hash is valid for the account's owner
-     * @param userOperationHash hash of the request data, used as the basis for the signature
+     * @param dataHash hash of the request data, used as the basis for the signature
      * @param signature user operation signature
      */
     abstract verifySignature(
-        userOperationHash: Field,
-        signature: Ecdsa,
+        dataHash: Field,
+        signature: any,
     ): Promise<void>
 }
