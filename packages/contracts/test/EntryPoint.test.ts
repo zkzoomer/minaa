@@ -1,6 +1,6 @@
-import { Field,PublicKey,  Mina, UInt64, fetchEvents, Poseidon } from "o1js"
+import { Field,PublicKey,  Mina, UInt64, Poseidon, Struct } from "o1js"
 import { EntryPoint, offchainState } from "../src/contracts/EntryPoint"
-import { Bytes32, Secp256k1, Secp256k1Scalar, Secp256k1Signature } from "../src/interfaces/UserOperation"
+import { Bytes32, Secp256k1, Secp256k1Scalar, Secp256k1Signature, UserOperation, UserOperationCallData } from "../src/interfaces/UserOperation"
 import { initLocalBlockchain, proofsEnabled, setAccountContract, settleEntryPoint } from "./test-utils"
 import { DepositedEvent, Withdrawal, WithdrawnEvent } from "../src/interfaces/IEntryPoint"
 
