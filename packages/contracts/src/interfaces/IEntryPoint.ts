@@ -99,7 +99,7 @@ export abstract class IEntryPoint extends SmartContract {
 
     /**
      * Generate a request ID - unique identifier for this request
-     * the request ID is a hash over the content of the userOp (except the signature), the entrypoint and the chainid
+     * The request ID is a hash over the content of the userOp (except the signature), the entrypoint and the chainid
      * @param userOp user operation being executeds
      * @returns the request ID
      */
