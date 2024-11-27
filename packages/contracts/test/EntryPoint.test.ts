@@ -157,4 +157,24 @@ describe("EntryPoint", () => {
             expect(events[0]?.event.data).toEqual(WithdrawnEvent.fromValue({ account, recipient, amount }))
         })
     })
+
+    describe("getUserOpHash", () => {
+        it("returns the hash of the UserOperation", async () => {
+            const userOp = new UserOperation({
+                sender: account.key.toPublicKey(),
+                nonce: Field(0),
+                key: Field(0),
+                calldata: new UserOperationCallData({
+                    recipient: PublicKey.empty(),
+                    amount: UInt64.from(0),
+                }),
+                fee: UInt64.from(0),
+            })
+            let expectedHash = Poseidon.hashPacked(UserOperation, userOp)
+            expectedHash = Poseidon.hashPacked(Struct({ hash: Field, address: PublicKey }), { hash: expectedHash, address: entryPoint.address })
+
+            const hash = await entryPoint.getUserOpHash(userOp)
+            expect(hash.toString()).toEqual(expectedHash.toString())
+        })
+    })
 })
