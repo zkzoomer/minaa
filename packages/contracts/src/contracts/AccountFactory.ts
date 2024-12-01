@@ -2,6 +2,7 @@ import {
     AccountUpdate,
     Experimental,
     Field,
+    Option,
     Permissions,
     Provable,
     PublicKey,
@@ -74,8 +75,9 @@ export class AccountFactory extends SmartContract {
         // Get the account owner
         const owner = accountContract.owner.getAndRequireEquals()
         // Update offchain state
+        const oldPublicKey = await this._getPublicKey(owner)
         this.offchainState.fields.accounts.update(owner, {
-            from: PublicKey.empty(),
+            from: oldPublicKey,
             to: address
         })
 
@@ -90,7 +92,11 @@ export class AccountFactory extends SmartContract {
      */
     @method.returns(PublicKey)
     async getPublicKey(owner: Secp256k1): Promise<PublicKey> {
-        return (await this.offchainState.fields.accounts.get(owner)).orElse(PublicKey.empty())
+        return (await this._getPublicKey(owner)).orElse(PublicKey.empty())
+    }
+
+    async _getPublicKey(owner: Secp256k1): Promise<Option<PublicKey>> {
+        return this.offchainState.fields.accounts.get(owner)
     }
 
     /**

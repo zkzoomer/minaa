@@ -16,11 +16,12 @@ export const initLocalBlockchain = async () => {
     })
     Mina.setActiveInstance(localChain)
 
-    const [deployer, aliceAccount, bobAccount, sender, recipient,zkApp] = localChain.testAccounts
+    const [deployer, aliceAccount, bobAccount, sender, recipient, entryPoint, accountFactory] = localChain.testAccounts
 
     return {
         localChain,
-        zkApp,
+        entryPoint,
+        accountFactory,
         deployer,
         aliceAccount,
         bobAccount,
@@ -29,14 +30,24 @@ export const initLocalBlockchain = async () => {
     }
 }
 
-export const ensureFundedAccount = async (privateKey: PrivateKey) => {
-    const publicKey = privateKey.toPublicKey()
-    const result = await fetchAccount({ publicKey })
-    const balance = result.account?.balance.toBigInt()
-    if (!balance || balance <= 15_000_000_000n) {
-        AccountUpdate.fundNewAccount(publicKey, 1)
-    }
-    return { privateKey, publicKey }
+export const deployAccount = async (
+    deployer: Mina.TestPublicKey,
+    account: Mina.TestPublicKey,
+    entryPoint: PublicKey,
+    owner: Secp256k1,
+    prefund: UInt64,
+) => {
+    const accountContract = new AccountContract(account)
+    const tx = await Mina.transaction(
+        { sender: deployer, fee: FEE },
+        async () => {
+            await accountContract.deploy()
+        },
+    )
+    await tx.prove()
+    await tx.sign([deployer.key, account.key]).send()
+
+    await setAccountContract(deployer, account, entryPoint, owner, prefund)
 }
 
 export const setAccountContract = async (
