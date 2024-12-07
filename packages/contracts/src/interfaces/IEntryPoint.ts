@@ -8,7 +8,6 @@ import {
 } from "o1js"
 import { Ecdsa, UserOperation } from "./UserOperation"
 
-
 /**
  * Withdrawal struct
  * @param account the account being withdrawn from
