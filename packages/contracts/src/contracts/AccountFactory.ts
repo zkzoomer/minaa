@@ -32,9 +32,6 @@ const { OffchainState, OffchainStateCommitments } = Experimental
 export const accountFactoryOffchainState = OffchainState({ accounts: OffchainState.Map(Secp256k1.provable, PublicKey) })
 export class AccountFactoryStateProof extends accountFactoryOffchainState.Proof {}
 
-// AccountContract verification key
-const accountVerificationKey = (await AccountContract.compile()).verificationKey
-
 export class AccountFactory extends SmartContract {
     events = {
         AccountAdded: AccountAddedEvent,

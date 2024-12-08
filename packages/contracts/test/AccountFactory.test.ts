@@ -3,7 +3,6 @@ import { AccountAddedEvent, AccountFactory, accountFactoryOffchainState } from "
 import { EntryPoint, offchainState as entryPointOffchainState } from "../src/contracts/EntryPoint"
 import { addAccountToFactory, FEE, initAccountFactory, initLocalBlockchain, proofsEnabled, deployAccount } from "./test-utils"
 import { Secp256k1, Secp256k1Scalar } from "../src/interfaces/UserOperation"
-import { AccountContract } from "../src"
 
 // A private key is a random scalar of secp256k1
 const privateKey = Secp256k1Scalar.random()
@@ -11,9 +10,8 @@ const owner = Secp256k1.generator.scale(privateKey)
 
 // Define a prefund amount
 const prefund = UInt64.from(350)
-
-// Define the entry point
-const entryPoint = Mina.TestPublicKey.random()
+// Define the initial balance of the account
+const initialBalance = UInt64.from(1_000_000_000)
 
 describe("AccountFactory", () => {
     let deployer: Mina.TestPublicKey
@@ -74,7 +72,7 @@ describe("AccountFactory", () => {
     describe("initialize", () => {
         beforeEach(async () => {
             await localDeploy()
-            await initAccountFactory(deployer, accountFactoryContract, entryPoint)
+            await initAccountFactory(deployer, accountFactoryContract, entryPointContract)
         })
 
         it("sets the `entryPoint`", async () => {
@@ -90,8 +88,8 @@ describe("AccountFactory", () => {
     describe("addAccount", () => {
         beforeEach(async () => {
             await localDeploy()
-            await initAccountFactory(deployer, accountFactoryContract, entryPoint)
-            await deployAccount(deployer, account, entryPoint, owner, prefund)
+            await initAccountFactory(deployer, accountFactoryContract, entryPointContract)
+            await deployAccount(deployer, account, entryPointContract, owner, prefund, initialBalance)
         })
 
         it("adds an already deployed account smart contract", async () => {
@@ -123,11 +121,11 @@ describe("AccountFactory", () => {
     describe("getPublicKey", () => {
         beforeEach(async () => {
             await localDeploy()
-            await initAccountFactory(deployer, accountFactoryContract, entryPoint)
+            await initAccountFactory(deployer, accountFactoryContract, entryPointContract)
         })
 
         it("returns the public key for an existing account when given the secp256k1 owner", async () => {
-            await deployAccount(deployer, account, entryPoint, owner, prefund)
+            await deployAccount(deployer, account, entryPointContract, owner, prefund, initialBalance)
             await addAccountToFactory(deployer, accountFactoryContract, account)
 
             const publicKey = await accountFactoryContract.getPublicKey(owner)
