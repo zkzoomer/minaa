@@ -1,4 +1,5 @@
 import {
+    AccountUpdate,
     Bool,
     DeployArgs,
     Field,
@@ -50,9 +51,11 @@ export class AccountContract extends IAccountContract {
      * Initializes the `AccountContract` smart contract
      * @param entryPoint The `EntryPoint` smart contract
      * @param owner The secp256k1 public key of the owner of this account smart contract
+     * @param prefund The amount of funds to be prefunded to the account
+     * @param initialBalance The initial balance of the account
      */
     @method
-    async initialize(entryPoint: PublicKey, owner: Secp256k1, prefund: UInt64) {
+    async initialize(entryPoint: PublicKey, owner: Secp256k1, prefund: UInt64, initialBalance: UInt64) {
         // Check that the `AccountContract` was not already initialized
         this.entryPoint.getAndRequireEquals().assertEquals(PublicKey.empty())
         const _owner = this.owner.getAndRequireEquals()
@@ -65,34 +68,52 @@ export class AccountContract extends IAccountContract {
         this.owner.set(owner)
 
         // Prefund the account with the transaction amount
-        AccountUpdate.createSigned(this.sender.getAndRequireSignature()).send({ to: this, amount: prefund });
+        const entryPointContract = new EntryPoint(entryPoint) // Using `this.entryPoint.getAndRequireEquals()` will cause it to fail for some reason
+        await entryPointContract.depositTo(this.address, prefund)
+
+        // Set the initial balance of the account
+        AccountUpdate.createSigned(this.sender.getAndRequireSignatureV2()).send({ to: this, amount: initialBalance })
 
         // Emits an `AccountInitialized`
         this.emitEvent('AccountInitialized', new AccountInitializedEvent({ entryPoint, account: this.address, owner }))
     }
+    
+    /// @inheritdoc IAccountContract
+    @method.returns(Field)
+    async validateUserOpAndExecute(
+        userOp: UserOperation,
+        signature: Ecdsa,
+        missingAccountFunds: UInt64,
+    ): Promise<Field> {
+        const entryPointContract = new EntryPoint(this.entryPoint.getAndRequireEquals())
+        entryPointContract.offchainState.setContractInstance(entryPointContract)
+        const userOpHash = await entryPointContract.getUserOpHash(userOp)
+
+        await this.verifySignature(userOpHash, signature)
+        await this._nonReplay(userOp)
+        await this._payPrefund(missingAccountFunds)
+        await this._execute(userOp.calldata.recipient, userOp.calldata.amount)
+
+        return userOpHash
+    }
 
     /**
-     * Executes a validated transaction, sending a `value` amount to the `recipient`
+     * Non-replay check
+     * @param userOp User operation to check
+     */
+    private async _nonReplay(userOp: UserOperation) {
+        const entryPointContract = new EntryPoint(this.entryPoint.getAndRequireEquals())
+        const nonce = await entryPointContract.getNonce(userOp.sender, userOp.key)
+        nonce.assertEquals(userOp.nonce)
+    }
+
+    /**
+     * Validates and executes a transaction, sending a `value` amount to the `recipient`
      * @param recipient transaction recipient
      * @param value amount being transferred
      */
-    @method
-    async execute(recipient: PublicKey, value: UInt64) {
-        await this._requireFromEntryPoint()
-        this.send({ to: recipient, amount: value, })
-    }
-
-    
-    /// @inheritdoc IAccountContract
-    @method
-    async validateUserOp(
-        userOperationHash: Field,
-        signature: Ecdsa,
-        missingAccountFunds: UInt64,
-    ) {
-        await this._requireFromEntryPoint()
-        await this.verifySignature(userOperationHash, signature)
-        await this._payPrefund(missingAccountFunds)
+    private async _execute(recipient: PublicKey, value: UInt64) {
+        this.send({ to: recipient, amount: value })
     }
 
     /**
@@ -106,15 +127,6 @@ export class AccountContract extends IAccountContract {
             new Secp256k1Scalar([userOperationHash, Field(0), Field(0)]),
             this.owner.getAndRequireEquals()
         ).assertEquals(Bool(true))
-    }
-
-    /**
-     * Require the function call went through the {@link EntryPoint}
-     */
-    private async _requireFromEntryPoint() {
-        this.entryPoint
-        .getAndRequireEquals()
-        .assertEquals(this.sender.getAndRequireSignature())
     }
 
     /**

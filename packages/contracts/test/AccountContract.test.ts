@@ -1,44 +1,64 @@
-import { Field, Mina, Poseidon, PublicKey, UInt64 } from "o1js"
+import { Field, Mina, Poseidon, UInt64 } from "o1js"
 import { AccountContract } from "../src/contracts/AccountContract"
 import { Secp256k1, Secp256k1Scalar, Secp256k1Signature, UserOperation, UserOperationCallData } from "../src/interfaces/UserOperation"
-import { proofsEnabled, ensureFundedAccount, initLocalBlockchain, initAccountContract, FEE } from "./test-utils"
+import { proofsEnabled, initLocalBlockchain, setAccountContract, FEE, settleEntryPoint } from "./test-utils"
+import { EntryPoint } from "../src/contracts/EntryPoint"
 
 // A private key is a random scalar of secp256k1
 const privateKey = Secp256k1Scalar.random()
 const owner = Secp256k1.generator.scale(privateKey)
 
 // Define a prefund amount
-const prefund = UInt64.from(350)
-
-// Define the entry point
-const entryPoint = Mina.TestPublicKey.random()
+const prefund = UInt64.from(1_000_000)
+// Define the initial balance of the account
+const initialBalance = UInt64.from(1_000_000_000)
 
 describe("AccountContract", () => {
     let deployer: Mina.TestPublicKey
+    let account: Mina.TestPublicKey
     let sender: Mina.TestPublicKey
     let recipient: Mina.TestPublicKey
-    let aliceAccount: Mina.TestPublicKey
-    let aliceAccountContract: AccountContract
+    let entryPoint: Mina.TestPublicKey
+    let accountContract: AccountContract
+    let entryPointContract: EntryPoint
 
     beforeAll(async () => {
-        if (proofsEnabled) await AccountContract.compile()
+        if (proofsEnabled) {
+            await AccountContract.compile()
+        }
     })
 
     beforeEach(async () => {
-        ({ aliceAccount, deployer, sender, recipient } = await initLocalBlockchain())
-        aliceAccountContract = new AccountContract(aliceAccount)
-        await ensureFundedAccount(aliceAccount.key)
+        const localChain = await initLocalBlockchain()
+        deployer = localChain.deployer
+        account = localChain.aliceAccount
+        sender = localChain.sender
+        recipient = localChain.recipient
+        entryPoint = localChain.entryPoint
+
+        accountContract = new AccountContract(account)
+        entryPointContract = new EntryPoint(entryPoint)
+        entryPointContract.offchainState.setContractInstance(entryPointContract)
     })
 
     async function localDeploy() {
         const tx = await Mina.transaction(
             { sender: deployer, fee: FEE },
             async () => {
-                await aliceAccountContract.deploy()
+                await accountContract.deploy()
             },
         )
         await tx.prove()
-        await tx.sign([deployer.key, aliceAccount.key]).send()
+        await tx.sign([deployer.key, account.key]).send()
+
+        const tx2 = await Mina.transaction(
+            { sender: deployer, fee: FEE },
+            async () => {
+                await entryPointContract.deploy()
+            },
+        )
+        await tx2.prove()
+        await tx2.sign([deployer.key, entryPoint.key]).send()
     }
 
     describe("deploy", () => {
@@ -52,62 +72,89 @@ describe("AccountContract", () => {
             await localDeploy()
 
             // Initialize the account contract
-            const startBalance = Mina.getAccount(aliceAccount).balance;
-            await initAccountContract(deployer, aliceAccount, entryPoint, owner, prefund)
+            await setAccountContract(deployer, account, entryPointContract, owner, prefund, initialBalance)
 
             // Verify both `entryPoint` and `owner` are set accordingly
-            expect(aliceAccountContract.entryPoint.get().toJSON()).toEqual(entryPoint.toJSON())
-            expect(aliceAccountContract.owner.get().x.toString()).toEqual(owner.x.toString())
-            expect(aliceAccountContract.owner.get().y.toString()).toEqual(owner.y.toString())
+            expect(accountContract.entryPoint.get().toJSON()).toEqual(entryPoint.toJSON())
+            expect(accountContract.owner.get().x.toString()).toEqual(owner.x.toString())
+            expect(accountContract.owner.get().y.toString()).toEqual(owner.y.toString())
 
             // Prefunds the account
-            let endBalance = Mina.getAccount(aliceAccount).balance;
-            expect(endBalance.sub(startBalance).toString()).toEqual(prefund.toString());
+            let balance = await entryPointContract.balanceOf(account)
+            expect(balance.toString()).toEqual(prefund.toString())
 
             // Emits an `AccountInitialized``event
-            const events = await aliceAccountContract.fetchEvents()
+            const events = await accountContract.fetchEvents()
             expect(events[0]?.type).toEqual('AccountInitialized')
         })
 
         it("reverts when trying to re-initialize an account", async () => {
             await localDeploy()
-            await initAccountContract(deployer, aliceAccount, entryPoint, owner, prefund)
+            await setAccountContract(deployer, account, entryPointContract, owner, prefund, initialBalance)
 
-            await expect(async () => await aliceAccountContract.initialize(entryPoint, owner, prefund)).rejects.toThrow();
+            await expect(async () => await accountContract.initialize(entryPointContract.address, owner, prefund, initialBalance)).rejects.toThrow();
         })
     })
+    
+    describe("validateUserOp", () => {
+        let userOp: UserOperation
 
-    describe("execute", () => {
-        it("reverts when the call is not sent via the `EntryPoint`", async () => {
+        beforeEach(async () => {
+            await localDeploy()
+            await setAccountContract(deployer, account, entryPointContract, owner, prefund, initialBalance)
+
+            userOp = new UserOperation({
+                sender: account.key.toPublicKey(),
+                nonce: Field(0),
+                key: Field(0),
+                calldata: new UserOperationCallData({
+                    recipient: recipient.key.toPublicKey(),
+                    amount: UInt64.from(100_000_000),
+                }),
+                fee: UInt64.from(0),
+            })
+        })
+
+        it("reverts when given an invalid signature", async () => {            
+            // Generating an invalid signature
+            const bogusSignature = Secp256k1Signature.signHash(
+                Secp256k1Scalar.from(350).toBigInt(),
+                privateKey.toBigInt(),
+            );
+
             await expect(async () => await Mina.transaction(
                 { sender: deployer, fee: FEE },
                 async () => {
-                    await aliceAccountContract.execute(PublicKey.empty(), UInt64.from(0))
+                    await accountContract.validateUserOpAndExecute(userOp, bogusSignature, UInt64.from(0))
                 },
             )).rejects.toThrow();
         })
 
-        it("sends a `value` amount to the `recipient`", async () => {
-            await localDeploy()
-            // Setting the sender to be the entry point for easier testing
-            await initAccountContract(deployer, aliceAccount, sender, owner, prefund)
-            // Recipient of the funds
-            let startBalance = Mina.getAccount(recipient).balance;
+        it("sends the `amount` to the `recipient`", async () => {
+            const oldBalance = await Mina.getBalance(recipient)
 
-            const amount = UInt64.from(250)
+            const userOpHash = await entryPointContract.getUserOpHash(userOp)
+            const signature = Secp256k1Signature.signHash(
+                (new Secp256k1Scalar([userOpHash, Field(0), Field(0)])).toBigInt(),
+                privateKey.toBigInt(),
+            )
+
             const tx = await Mina.transaction(
-                { sender: sender, fee: FEE },
+                { sender, fee: FEE },
                 async () => {
-                    await aliceAccountContract.execute(recipient, amount)
+                    await accountContract.validateUserOpAndExecute(userOp, signature, UInt64.from(0))
                 },
             )
             await tx.prove()
             await tx.sign([sender.key]).send()
+            await settleEntryPoint(entryPointContract, sender)
 
-            // Recipient's balance is increased
-            let endBalance = Mina.getAccount(recipient).balance;
-            expect(endBalance.sub(startBalance).toString()).toEqual(amount.toString());
+            const balance = await Mina.getBalance(recipient)
+            expect(balance.sub(oldBalance).toString()).toEqual(userOp.calldata.amount.toString())
         })
+
+        /* it("reverts when given a replayed nonce", async () => {
+        }) */ // TODO: test this via EntryPoint
     })
 
     describe("verifySignature", () => {
@@ -123,10 +170,12 @@ describe("AccountContract", () => {
             userOpHash = Poseidon.hashPacked(UserOperation, userOp)
         })
 
-        it("verifies a valid signature", async () => {
+        beforeEach(async () => {
             await localDeploy()
-            await initAccountContract(deployer, aliceAccount, sender, owner, prefund)
+            await setAccountContract(deployer, account, entryPointContract, owner, prefund, initialBalance)
+        })
 
+        it("verifies a valid signature", async () => {
             // Generating a valid signature
             const signature = Secp256k1Signature.signHash(
                 (new Secp256k1Scalar([userOpHash, Field(0), Field(0)])).toBigInt(),
@@ -136,7 +185,7 @@ describe("AccountContract", () => {
             const tx = await Mina.transaction(
                 { sender, fee: FEE },
                 async () => {
-                    await aliceAccountContract.verifySignature(userOpHash, signature)
+                    await accountContract.verifySignature(userOpHash, signature)
                 },
             )
             await tx.prove()
@@ -144,9 +193,6 @@ describe("AccountContract", () => {
         })
 
         it("reverts when given an invalid signature", async () => {
-            await localDeploy()
-            await initAccountContract(deployer, aliceAccount, sender, owner, prefund)
-
             // Generating an invalid signature
             const bogusSignature = Secp256k1Signature.signHash(
                 Secp256k1Scalar.from(350).toBigInt(),
@@ -156,7 +202,7 @@ describe("AccountContract", () => {
             await expect(async () => await Mina.transaction(
                 { sender: deployer, fee: FEE },
                 async () => {
-                    await aliceAccountContract.verifySignature(userOpHash, bogusSignature)
+                    await accountContract.verifySignature(userOpHash, bogusSignature)
                 },
             )).rejects.toThrow();
         })
