@@ -20,22 +20,23 @@ export const initLocalBlockchain = async () => {
 
     return {
         localChain,
-        entryPoint,
-        accountFactory,
         deployer,
         aliceAccount,
         bobAccount,
         sender,
         recipient,
+        entryPoint,
+        accountFactory,
     }
 }
 
 export const deployAccount = async (
     deployer: Mina.TestPublicKey,
     account: Mina.TestPublicKey,
-    entryPoint: PublicKey,
+    entryPointContract: EntryPoint,
     owner: Secp256k1,
     prefund: UInt64,
+    initialBalance: UInt64,
 ) => {
     const accountContract = new AccountContract(account)
     const tx = await Mina.transaction(
@@ -47,15 +48,16 @@ export const deployAccount = async (
     await tx.prove()
     await tx.sign([deployer.key, account.key]).send()
 
-    await setAccountContract(deployer, account, entryPoint, owner, prefund)
+    await setAccountContract(deployer, account, entryPointContract, owner, prefund, initialBalance)
 }
 
 export const setAccountContract = async (
     deployer: Mina.TestPublicKey,
     account: Mina.TestPublicKey,
-    entryPoint: PublicKey,
+    entryPointContract: EntryPoint,
     owner: Secp256k1,
     prefund: UInt64,
+    initialBalance: UInt64,
 ) => {
     let accountContract = new AccountContract(account)
 
@@ -71,25 +73,24 @@ export const setAccountContract = async (
     const initTx = await Mina.transaction(
         { sender: deployer, fee: FEE },
         async () => {
-            await accountContract.initialize(entryPoint, owner, prefund)
+            await accountContract.initialize(entryPointContract.address, owner, prefund, initialBalance)
         },
     )
     await initTx.prove()
     await initTx.sign([deployer.key, account.key]).send()
 
-    const entryPointContract = new EntryPoint(entryPoint)
     await settleEntryPoint(entryPointContract, deployer)
 }
 
 export const initAccountFactory = async (
     deployer: Mina.TestPublicKey,
-    accountFactory: AccountFactory,
-    entryPoint: PublicKey,
+    accountFactoryContract: AccountFactory,
+    entryPointContract: EntryPoint,
 ) => {
     const tx = await Mina.transaction(
         { sender: deployer, fee: FEE },
         async () => {
-            await accountFactory.initialize(entryPoint)
+            await accountFactoryContract.initialize(entryPointContract.address)
         },
     )
     await tx.prove()
@@ -98,32 +99,32 @@ export const initAccountFactory = async (
 
 export const addAccountToFactory = async (
     deployer: Mina.TestPublicKey,
-    accountFactory: AccountFactory,
+    accountFactoryContract: AccountFactory,
     account: PublicKey,
 ) => {
     const tx = await Mina.transaction(
         { sender: deployer, fee: FEE },
         async () => {
-            await accountFactory.addAccount(account)
+            await accountFactoryContract.addAccount(account)
         },
     )
     await tx.prove()
     await tx.sign([deployer.key]).send()
 
     // Settle all outstanding state changes
-    let proof = await accountFactory.offchainState.createSettlementProof()
+    let proof = await accountFactoryContract.offchainState.createSettlementProof()
     const settleTx = await Mina.transaction(deployer, async () => {
-        await accountFactory.settle(proof);
+        await accountFactoryContract.settle(proof);
     });
     await settleTx.sign([deployer.key]).prove();
     await settleTx.send();
 }
 
-export async function settleEntryPoint(contract: EntryPoint, sender: Mina.TestPublicKey) {
-    const proof = await contract.offchainState.createSettlementProof();
+export async function settleEntryPoint(entryPointContract: EntryPoint, sender: Mina.TestPublicKey) {
+    const proof = await entryPointContract.offchainState.createSettlementProof()
     const tx = Mina.transaction(sender, async () => {
-        await contract.settle(proof);
+        await entryPointContract.settle(proof);
     });
-    tx.sign([sender.key]);
-    await tx.prove().send().wait();
+    await tx.prove()
+    await tx.sign([sender.key]).send()
 }
