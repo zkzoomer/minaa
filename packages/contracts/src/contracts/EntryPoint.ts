@@ -5,6 +5,7 @@ import {
     Option,
     Poseidon,
     PublicKey,
+    State,
     Struct,
     UInt64,
     Void,
@@ -16,7 +17,7 @@ import { Ecdsa, NonceSequence, UserOperation } from "../interfaces/UserOperation
 import { AccountContract } from "./AccountContract"
 
 // Offchain storage definition
-const { OffchainState, OffchainStateCommitments } = Experimental
+const { OffchainState } = Experimental
 export const offchainState = OffchainState({
     nonceSequenceNumber: OffchainState.Map(NonceSequence, Field),
     depositInfo: OffchainState.Map(PublicKey, UInt64),
@@ -34,12 +35,15 @@ export class EntryPoint extends IEntryPoint {
     @state(OffchainState.Commitments) offchainStateCommitments = offchainState.emptyCommitments()
     offchainState = offchainState.init(this);
 
+    // The account contract to call--defined to emulate a `msg.sender` behavior
+    @state(Field) callee = State<Field>(Field(0))
+
     /// @inheritdoc IEntryPoint
     async getNonce(sender: PublicKey, key: Field): Promise<Field> {
         return (await this._getNonce(sender, key)).orElse(Field(0))
     }
 
-    async _getNonce(sender: PublicKey, key: Field): Promise<Option<Field>> {
+    private async _getNonce(sender: PublicKey, key: Field): Promise<Option<Field>> {
         return this.offchainState.fields.nonceSequenceNumber.get({ sender, key })
     }
 
@@ -48,7 +52,7 @@ export class EntryPoint extends IEntryPoint {
         return (await this._balanceOf(account)).orElse(UInt64.from(0))
     }
 
-    async _balanceOf(account: PublicKey): Promise<Option<UInt64>> {
+    private async _balanceOf(account: PublicKey): Promise<Option<UInt64>> {
         return this.offchainState.fields.depositInfo.get(account)
     }
 
@@ -106,8 +110,7 @@ export class EntryPoint extends IEntryPoint {
         beneficiary: PublicKey
     ): Promise<Void> {
         const requiredPrefund = await this._getRequiredPrefund(userOp)
-        const userOpHash = await this._validatePrepayment(userOp, signature, requiredPrefund)
-        await this._executeUserOp(userOp)
+        const userOpHash = await this._validatePrepaymentAndExecute(userOp, signature, requiredPrefund)
         await this._compensate(beneficiary, requiredPrefund)
 
         // Emits a `UserOperation`
@@ -147,36 +150,37 @@ export class EntryPoint extends IEntryPoint {
     /**
      * Validates account and ensures there is enough funds in the contract to pay for the gas fee
      */
-    private async _validatePrepayment(
+    private async _validatePrepaymentAndExecute(
         userOp: UserOperation,
         signature: Ecdsa,
         requiredPrefund: UInt64
     ): Promise<Field> {
         await this._validateAndUpdateNonce(userOp.sender, userOp.key, userOp.nonce)
-        return this._validateAccountPrepayment(userOp, signature, requiredPrefund)
+        return this._validateAccountPrepaymentAndExecute(userOp, signature, requiredPrefund)
     }
 
     /**
-     * Calls `validateUserOp` on the corresponding account, reverts if failed validation or no required prefund
+     * Calls `validateUserOpAndExecute` on the corresponding account, reverts if failed validation or no required prefund
      * @param userOp 
      * @param signature
      * @param requiredPrefund 
      */
-    private async _validateAccountPrepayment(
+    private async _validateAccountPrepaymentAndExecute(
         userOp: UserOperation,
         signature: Ecdsa,
         requiredPrefund: UInt64
     ): Promise<Field> {
-        // Compute the `userOpHash`
-        const userOpHash = await this.getUserOpHash(userOp)
-
         // Get the amount that must be prefunded to complete this operation, if any
         const balance = await this.balanceOf(userOp.sender)
         const missingAccountFunds = balance.greaterThan(requiredPrefund) ? UInt64.from(0) : requiredPrefund.sub(balance)
 
         // Validate the operation and receive the missing funds, if any
         const accountContract = new AccountContract(userOp.sender)
-        await accountContract.validateUserOp(userOpHash, signature, missingAccountFunds)
+        const userOpHash = await accountContract.validateUserOpAndExecute(
+            userOp,
+            signature,
+            missingAccountFunds
+        )
 
         // Decrease the deposited amount for the account by the required prefund, which will be sent to the beneficiary
         const oldAmountOption = await this._balanceOf(userOp.sender)
@@ -187,15 +191,6 @@ export class EntryPoint extends IEntryPoint {
         })
 
         return userOpHash
-    }
-
-    /**
-     * Executes a user operation
-     * @param userOp the user operation being executed
-     */
-    private async _executeUserOp(userOp: UserOperation){
-        const accountContract = new AccountContract(userOp.sender)
-        await accountContract.execute(userOp.calldata.recipient, userOp.calldata.amount)
     }
 
     /**
@@ -213,10 +208,7 @@ export class EntryPoint extends IEntryPoint {
      * @param amount amount to receive
      */
     private async _compensate(beneficiary: PublicKey, amount: UInt64) {
-        AccountUpdate.createSigned(this.address).send({
-            to: beneficiary,
-            amount,
-        })
+        this.send({ to: beneficiary, amount })
     }
 
     /**
