@@ -172,4 +172,42 @@ describe("EntryPoint", () => {
             expect(hash.toString()).toEqual(expectedHash.toString())
         })
     })
+
+    describe("validateAndUpdateNonce", () => {
+        it("validates and updates the nonce", async () => {
+            const key = Field.random()
+            const tx = await Mina.transaction(
+                { sender: deployer, fee: FEE },
+                async () => {
+                    await entryPointContract.validateAndUpdateNonce(account.key.toPublicKey(), key, Field(0))
+                },
+            )
+            await tx.prove()
+            await tx.sign([deployer.key]).send()
+            await settleEntryPoint(entryPointContract, deployer)
+
+            const nonce = await entryPointContract.getNonce(account.key.toPublicKey(), key)
+            expect(nonce.toString()).toEqual(Field(1).toString())
+        })
+
+        it("reverts if the nonce is not valid", async () => {
+            const key = Field.random()
+            const tx = await Mina.transaction(
+                { sender: deployer, fee: FEE },
+                async () => {
+                    await entryPointContract.validateAndUpdateNonce(account.key.toPublicKey(), key, Field(0))
+                },
+            )
+            await tx.prove()
+            await tx.sign([deployer.key]).send()
+            await settleEntryPoint(entryPointContract, deployer)
+
+            await expect(async () => await Mina.transaction(
+                { sender: deployer, fee: FEE },
+                async () => {
+                    await entryPointContract.validateAndUpdateNonce(account.key.toPublicKey(), key, Field(0))
+                },
+            )).rejects.toThrow();
+        })
+    })
 })

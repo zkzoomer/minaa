@@ -125,25 +125,26 @@ export class EntryPoint extends IEntryPoint {
     }
 
     /**
-     * Validates a nonce uniqueness for the given account, called just after validateUserOp(). Reverts if the nonce is not valid
+     * Validates a nonce uniqueness for the given account, and updates it. Reverts if the nonce is not valid
      * @param sender account being validated
      * @param key nonce key being validated
-     * @param _nonce nonce being validated
+     * @param nonce nonce being validated
      */
-    private async _validateAndUpdateNonce(
+    @method
+    async validateAndUpdateNonce(
         sender: PublicKey,
         key: Field,
-        _nonce: Field,
+        nonce: Field,
     ) {
         // Get current nonce
         const nonceOption = await this._getNonce(sender, key)
-        const nonce = nonceOption.orElse(Field(0))
-        nonce.assertEquals(_nonce)
+        const currentNonce = nonceOption.orElse(Field(0))
+        currentNonce.assertEquals(nonce)
 
         // Update offchain state
         this.offchainState.fields.nonceSequenceNumber.update({ sender, key }, {
             from: nonceOption,
-            to: nonce.add(Field(1))
+            to: currentNonce.add(Field(1))
         })
     }
 

@@ -90,30 +90,11 @@ export class AccountContract extends IAccountContract {
         const userOpHash = await entryPointContract.getUserOpHash(userOp)
 
         await this.verifySignature(userOpHash, signature)
-        await this._nonReplay(userOp)
-        await this._payPrefund(missingAccountFunds)
+        await entryPointContract.validateAndUpdateNonce(userOp.sender, userOp.key, userOp.nonce)
+        await entryPointContract.depositTo(this.address, missingAccountFunds)
         await this._execute(userOp.calldata.recipient, userOp.calldata.amount)
 
         return userOpHash
-    }
-
-    /**
-     * Non-replay check
-     * @param userOp User operation to check
-     */
-    private async _nonReplay(userOp: UserOperation) {
-        const entryPointContract = new EntryPoint(this.entryPoint.getAndRequireEquals())
-        const nonce = await entryPointContract.getNonce(userOp.sender, userOp.key)
-        nonce.assertEquals(userOp.nonce)
-    }
-
-    /**
-     * Validates and executes a transaction, sending a `value` amount to the `recipient`
-     * @param recipient transaction recipient
-     * @param value amount being transferred
-     */
-    private async _execute(recipient: PublicKey, value: UInt64) {
-        this.send({ to: recipient, amount: value })
     }
 
     /**
@@ -130,10 +111,11 @@ export class AccountContract extends IAccountContract {
     }
 
     /**
-     * Prefund the `EntryPoint` gas for this transaction
-     * @param missingAccountFunds Amount to be prefunded
+     * Validates and executes a transaction, sending a `value` amount to the `recipient`
+     * @param recipient transaction recipient
+     * @param value amount being transferred
      */
-    private async _payPrefund(missingAccountFunds: UInt64) {
-        await (new EntryPoint(this.entryPoint.getAndRequireEquals())).depositTo(this.address, missingAccountFunds)
+    private async _execute(recipient: PublicKey, value: UInt64) {
+        this.send({ to: recipient, amount: value })
     }
 }
