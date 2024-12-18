@@ -2,7 +2,8 @@ import { Field,PublicKey,  Mina, UInt64, Poseidon, Struct } from "o1js"
 import { EntryPoint, offchainState } from "../src/contracts/EntryPoint"
 import { Secp256k1, Secp256k1Scalar, Secp256k1Signature, UserOperation, UserOperationCallData } from "../src/interfaces/UserOperation"
 import { initLocalBlockchain, proofsEnabled, setAccountContract, settleEntryPoint } from "./test-utils"
-import { DepositedEvent, Withdrawal, WithdrawnEvent } from "../src/interfaces/IEntryPoint"
+import { DepositedEvent, UserOperationEvent, Withdrawal, WithdrawnEvent } from "../src/interfaces/IEntryPoint"
+import { AccountContract } from "../src/contracts/AccountContract"
 
 const FEE = 100_000_000
 
@@ -11,7 +12,10 @@ describe("EntryPoint", () => {
     let entryPoint: Mina.TestPublicKey
     let account: Mina.TestPublicKey
     let recipient: Mina.TestPublicKey
+    let beneficiary: Mina.TestPublicKey
     let entryPointContract: EntryPoint
+    let privateKey: Secp256k1Scalar
+    let owner: Secp256k1
 
     // Tests break when doing a `beforeEach`
     beforeAll(async () => {
@@ -20,8 +24,13 @@ describe("EntryPoint", () => {
         entryPoint = localChain.entryPoint
         account = localChain.aliceAccount
         recipient = localChain.recipient
+        beneficiary = localChain.beneficiary
         entryPointContract = new EntryPoint(entryPoint)
         entryPointContract.offchainState.setContractInstance(entryPointContract)
+
+        // A private key is a random scalar of secp256k1
+        privateKey = Secp256k1Scalar.random()
+        owner = Secp256k1.generator.scale(privateKey)
 
         if (proofsEnabled) {
             await offchainState.compile()
@@ -100,18 +109,12 @@ describe("EntryPoint", () => {
 
     describe("withdrawTo", () => {
         let tx: Mina.Transaction<false, false>
-        let privateKey: Secp256k1Scalar
-        let owner: Secp256k1
         let prefund: UInt64
         let amount: UInt64
         let oldRecipientBalance: UInt64
 
         beforeAll(async () => {
             oldRecipientBalance = await Mina.getBalance(recipient)
-
-            // A private key is a random scalar of secp256k1
-            privateKey = Secp256k1Scalar.random()
-            owner = Secp256k1.generator.scale(privateKey)
             prefund = UInt64.from(100_000_000)
 
             await localDeploy()
@@ -150,6 +153,123 @@ describe("EntryPoint", () => {
         it("emits a Withdrawn event", async () => {
             const events = await entryPointContract.fetchEvents();
             expect(events[0]?.event.data).toEqual(WithdrawnEvent.fromValue({ account, recipient, amount }))
+        })
+    })
+
+    describe("handleOp", () => {
+        let prefund: UInt64
+        let balance: UInt64
+        let fee: UInt64
+        let amount: UInt64
+        let userOp: UserOperation
+        let oldRecipientBalance: UInt64
+        let oldBeneficiaryBalance: UInt64
+
+        const sendHandleOp = async (userOp: UserOperation, signature: Secp256k1Signature) => {
+            const tx = await Mina.transaction(
+                { sender: deployer, fee: FEE },
+                async () => {
+                    await entryPointContract.handleOp(userOp, signature, beneficiary.key.toPublicKey())
+                },
+            )
+            await tx.prove()
+            await tx.sign([deployer.key, entryPoint.key, account.key]).send()
+            await settleEntryPoint(entryPointContract, deployer)
+
+            return tx
+        }
+
+        beforeAll(async () => {
+            oldRecipientBalance = await Mina.getBalance(recipient)
+            oldBeneficiaryBalance = await Mina.getBalance(beneficiary)
+            // Account already deployed
+            prefund = await entryPointContract.balanceOf(account.key.toPublicKey())
+            balance = await Mina.getBalance(account.key.toPublicKey())
+
+            // Define a UserOperation
+            fee = UInt64.from(Math.floor(Math.random() * Number(prefund) / 2))
+            amount = UInt64.from(Math.floor(Math.random() * Number(balance) / 2))
+            userOp = new UserOperation({
+                sender: account.key.toPublicKey(),
+                nonce: Field(0),
+                key: Field(0),
+                calldata: new UserOperationCallData({ recipient, amount }),
+                fee: fee,
+            })
+        })
+
+        it("validates and executes the UserOperation, sending the fee to the beneficiary", async () => {
+            const userOpHash = await entryPointContract.getUserOpHash(userOp)
+            const signature = Secp256k1Signature.signHash(
+                (new Secp256k1Scalar([userOpHash, Field(0), Field(0)])).toBigInt(),
+                privateKey.toBigInt(),
+            );
+            await sendHandleOp(userOp, signature)
+
+            // The fee was debited from the account's balance
+            const feeBalance = await entryPointContract.balanceOf(account.key.toPublicKey())
+            expect(feeBalance.toString()).toEqual(prefund.sub(fee).toString())
+            // And sent to the beneficiary
+            const beneficiaryBalance = await Mina.getBalance(beneficiary)
+            expect(beneficiaryBalance.toString()).toEqual(oldBeneficiaryBalance.add(fee).toString())
+
+            // The account's balance was decremented by the amount
+            const accountBalance = await Mina.getBalance(account.key.toPublicKey())
+            expect(accountBalance.toString()).toEqual(balance.sub(amount).toString())
+            // And sent to the recipient
+            const recipientBalance = await Mina.getBalance(recipient)
+            expect(recipientBalance.toString()).toEqual(oldRecipientBalance.add(amount).toString())
+        })
+
+        it("reverts under a replay attack", async () => {
+            const userOpHash = await entryPointContract.getUserOpHash(userOp)
+            const signature = Secp256k1Signature.signHash(
+                (new Secp256k1Scalar([userOpHash, Field(0), Field(0)])).toBigInt(),
+                privateKey.toBigInt(),
+            );
+
+            await expect(async () => await Mina.transaction(
+                { sender: deployer, fee: FEE },
+                async () => {
+                    await entryPointContract.handleOp(userOp, signature, beneficiary.key.toPublicKey())
+                },
+            )).rejects.toThrow();
+        })
+
+        it("reverts if the EntryPoint's balance is less than the fee", async () => {
+            const invalidUserOp = { ...userOp, fee: prefund.add(UInt64.from(1)), nonce: Field(1) }
+            const userOpHash = await entryPointContract.getUserOpHash(invalidUserOp)
+            const signature = Secp256k1Signature.signHash(
+                (new Secp256k1Scalar([userOpHash, Field(0), Field(0)])).toBigInt(),
+                privateKey.toBigInt(),
+            );
+
+            await expect(async () => await Mina.transaction(
+                { sender: deployer, fee: FEE },
+                async () => {
+                    await entryPointContract.handleOp(invalidUserOp, signature, beneficiary.key.toPublicKey())
+                },
+            )).rejects.toThrow();
+        })
+
+        it("reverts if the signature is invalid", async () => {
+            const signature = Secp256k1Signature.signHash(
+                (new Secp256k1Scalar([Field.random(), Field.random(), Field.random()])).toBigInt(),
+                privateKey.toBigInt(),
+            );
+
+            await expect(async () => await Mina.transaction(
+                { sender: deployer, fee: FEE },
+                async () => {
+                    await entryPointContract.handleOp(userOp, signature, beneficiary.key.toPublicKey())
+                },
+            )).rejects.toThrow();
+        })
+
+        it("emits a UserOperation event", async () => {
+            const userOpHash = await entryPointContract.getUserOpHash(userOp)
+            const events = await entryPointContract.fetchEvents();
+            expect(events[0]?.event.data).toEqual(UserOperationEvent.fromValue({ userOpHash, ...userOp }))
         })
     })
 

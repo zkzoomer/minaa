@@ -109,9 +109,9 @@ export class EntryPoint extends IEntryPoint {
         signature: Ecdsa,
         beneficiary: PublicKey
     ): Promise<Void> {
-        const requiredPrefund = await this._getRequiredPrefund(userOp)
-        const userOpHash = await this._validatePrepaymentAndExecute(userOp, signature, requiredPrefund)
-        await this._compensate(beneficiary, requiredPrefund)
+        const fee = await this._getRequiredPrefund(userOp)
+        const userOpHash = await this._validateAndExecute(userOp, signature, fee)
+        await this._compensate(beneficiary, fee)
 
         // Emits a `UserOperation`
         this.emitEvent('UserOperation', new UserOperationEvent({ userOpHash, ...userOp }))
@@ -149,46 +149,32 @@ export class EntryPoint extends IEntryPoint {
     }
 
     /**
-     * Validates account and ensures there is enough funds in the contract to pay for the gas fee
-     */
-    private async _validatePrepaymentAndExecute(
-        userOp: UserOperation,
-        signature: Ecdsa,
-        requiredPrefund: UInt64
-    ): Promise<Field> {
-        await this._validateAndUpdateNonce(userOp.sender, userOp.key, userOp.nonce)
-        return this._validateAccountPrepaymentAndExecute(userOp, signature, requiredPrefund)
-    }
-
-    /**
      * Calls `validateUserOpAndExecute` on the corresponding account, reverts if failed validation or no required prefund
      * @param userOp 
      * @param signature
      * @param requiredPrefund 
      */
-    private async _validateAccountPrepaymentAndExecute(
+    private async _validateAndExecute(
         userOp: UserOperation,
         signature: Ecdsa,
-        requiredPrefund: UInt64
+        fee: UInt64
     ): Promise<Field> {
-        // Get the amount that must be prefunded to complete this operation, if any
-        const balance = await this.balanceOf(userOp.sender)
-        const missingAccountFunds = balance.greaterThan(requiredPrefund) ? UInt64.from(0) : requiredPrefund.sub(balance)
+        // Check if the account has enough funds to pay for the operation
+        const oldBalanceOption = await this._balanceOf(userOp.sender)
+        const oldBalance = oldBalanceOption.orElse(UInt64.from(0))
+        oldBalance.assertGreaterThanOrEqual(fee)
 
-        // Validate the operation and receive the missing funds, if any
+        // Validate the operation and execute it
         const accountContract = new AccountContract(userOp.sender)
         const userOpHash = await accountContract.validateUserOpAndExecute(
             userOp,
-            signature,
-            missingAccountFunds
+            signature
         )
 
-        // Decrease the deposited amount for the account by the required prefund, which will be sent to the beneficiary
-        const oldAmountOption = await this._balanceOf(userOp.sender)
-        const oldAmount = oldAmountOption.orElse(UInt64.from(0))
+        // Decrease the deposited amount for the account by the required fee, which will be sent to the beneficiary
         await this.offchainState.fields.depositInfo.update(userOp.sender, {
-            from: oldAmountOption,
-            to: oldAmount.sub(requiredPrefund)
+            from: oldBalanceOption,
+            to: oldBalance.sub(fee)
         })
 
         return userOpHash
