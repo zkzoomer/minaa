@@ -83,7 +83,6 @@ export class AccountContract extends IAccountContract {
     async validateUserOpAndExecute(
         userOp: UserOperation,
         signature: Ecdsa,
-        missingAccountFunds: UInt64,
     ): Promise<Field> {
         const entryPointContract = new EntryPoint(this.entryPoint.getAndRequireEquals())
         entryPointContract.offchainState.setContractInstance(entryPointContract)
@@ -91,7 +90,6 @@ export class AccountContract extends IAccountContract {
 
         await this.verifySignature(userOpHash, signature)
         await entryPointContract.validateAndUpdateNonce(userOp.sender, userOp.key, userOp.nonce)
-        await entryPointContract.depositTo(this.address, missingAccountFunds)
         await this._execute(userOp.calldata.recipient, userOp.calldata.amount)
 
         return userOpHash

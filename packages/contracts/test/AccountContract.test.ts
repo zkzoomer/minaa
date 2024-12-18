@@ -96,7 +96,7 @@ describe("AccountContract", () => {
         })
     })
     
-    describe("validateUserOp", () => {
+    describe("validateUserOpAndExecute", () => {
         let userOp: UserOperation
 
         beforeEach(async () => {
@@ -125,7 +125,7 @@ describe("AccountContract", () => {
             await expect(async () => await Mina.transaction(
                 { sender: deployer, fee: FEE },
                 async () => {
-                    await accountContract.validateUserOpAndExecute(userOp, bogusSignature, UInt64.from(0))
+                    await accountContract.validateUserOpAndExecute(userOp, bogusSignature)
                 },
             )).rejects.toThrow();
         })
@@ -142,7 +142,7 @@ describe("AccountContract", () => {
             const tx = await Mina.transaction(
                 { sender, fee: FEE },
                 async () => {
-                    await accountContract.validateUserOpAndExecute(userOp, signature, UInt64.from(0))
+                    await accountContract.validateUserOpAndExecute(userOp, signature)
                 },
             )
             await tx.prove()
@@ -153,8 +153,30 @@ describe("AccountContract", () => {
             expect(balance.sub(oldBalance).toString()).toEqual(userOp.calldata.amount.toString())
         })
 
-        /* it("reverts when given a replayed nonce", async () => {
-        }) */ // TODO: test this via EntryPoint
+        it("reverts when given a replayed nonce", async () => {
+            const userOpHash = await entryPointContract.getUserOpHash(userOp)
+            const signature = Secp256k1Signature.signHash(
+                (new Secp256k1Scalar([userOpHash, Field(0), Field(0)])).toBigInt(),
+                privateKey.toBigInt(),
+            )
+
+            const tx = await Mina.transaction(
+                { sender, fee: FEE },
+                async () => {
+                    await accountContract.validateUserOpAndExecute(userOp, signature)
+                },
+            )
+            await tx.prove()
+            await tx.sign([sender.key]).send()
+            await settleEntryPoint(entryPointContract, sender)
+            
+            await expect(async () => await Mina.transaction(
+                { sender: deployer, fee: FEE },
+                async () => {
+                    await accountContract.validateUserOpAndExecute(userOp, signature)
+                },
+            )).rejects.toThrow();
+        })
     })
 
     describe("verifySignature", () => {
