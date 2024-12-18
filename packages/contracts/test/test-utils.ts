@@ -16,7 +16,7 @@ export const initLocalBlockchain = async () => {
     })
     Mina.setActiveInstance(localChain)
 
-    const [deployer, aliceAccount, bobAccount, sender, recipient, entryPoint, accountFactory] = localChain.testAccounts
+    const [deployer, aliceAccount, bobAccount, sender, recipient, beneficiary, entryPoint, accountFactory] = localChain.testAccounts
 
     return {
         localChain,
@@ -25,6 +25,7 @@ export const initLocalBlockchain = async () => {
         bobAccount,
         sender,
         recipient,
+        beneficiary,
         entryPoint,
         accountFactory,
     }
