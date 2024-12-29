@@ -1,5 +1,4 @@
 import { Field, Mina, Poseidon, PublicKey, Struct, UInt64 } from "o1js"
-import { AccountContract } from "../src/contracts/AccountContract"
 import { EntryPoint, offchainState } from "../src/contracts/EntryPoint"
 import {
     DepositedEvent,

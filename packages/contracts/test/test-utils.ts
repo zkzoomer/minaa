@@ -1,13 +1,9 @@
 import {
-    AccountUpdate,
     Mina,
-    PrivateKey,
     type PublicKey,
     type UInt64,
-    fetchAccount,
 } from "o1js"
 import { AccountContract, type AccountFactory } from "../src"
-import { accountFactoryOffchainState } from "../src/contracts/AccountFactory"
 import type { EntryPoint } from "../src/contracts/EntryPoint"
 import type { Curve } from "../src/interfaces/UserOperation"
 
