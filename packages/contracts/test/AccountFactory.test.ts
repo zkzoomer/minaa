@@ -1,8 +1,22 @@
 import { Mina, PublicKey, UInt64 } from "o1js"
-import { AccountAddedEvent, AccountFactory, accountFactoryOffchainState } from "../src/contracts/AccountFactory"
-import { EntryPoint, offchainState as entryPointOffchainState } from "../src/contracts/EntryPoint"
-import { addAccountToFactory, FEE, initAccountFactory, initLocalBlockchain, proofsEnabled, deployAccount } from "./test-utils"
+import {
+    AccountAddedEvent,
+    AccountFactory,
+    accountFactoryOffchainState,
+} from "../src/contracts/AccountFactory"
+import {
+    EntryPoint,
+    offchainState as entryPointOffchainState,
+} from "../src/contracts/EntryPoint"
 import { Secp256k1, Secp256k1Scalar } from "../src/interfaces/UserOperation"
+import {
+    FEE,
+    addAccountToFactory,
+    deployAccount,
+    initAccountFactory,
+    initLocalBlockchain,
+    proofsEnabled,
+} from "./test-utils"
 
 // A private key is a random scalar of secp256k1
 const privateKey = Secp256k1Scalar.random()
@@ -38,7 +52,9 @@ describe("AccountFactory", () => {
         accountFactory = localChain.accountFactory
 
         accountFactoryContract = new AccountFactory(accountFactory)
-        accountFactoryContract.offchainState.setContractInstance(accountFactoryContract)
+        accountFactoryContract.offchainState.setContractInstance(
+            accountFactoryContract,
+        )
         entryPointContract = new EntryPoint(entryPoint)
         entryPointContract.offchainState.setContractInstance(entryPointContract)
     })
@@ -68,28 +84,47 @@ describe("AccountFactory", () => {
             await localDeploy()
         })
     })
- 
+
     describe("initialize", () => {
         beforeEach(async () => {
             await localDeploy()
-            await initAccountFactory(deployer, accountFactoryContract, entryPointContract)
+            await initAccountFactory(
+                deployer,
+                accountFactoryContract,
+                entryPointContract,
+            )
         })
 
         it("sets the `entryPoint`", async () => {
             // Verify the `entryPoint` is set accordingly
-            expect(accountFactoryContract.entryPoint.get().toBase58()).toEqual(entryPoint.toBase58())
+            expect(accountFactoryContract.entryPoint.get().toBase58()).toEqual(
+                entryPoint.toBase58(),
+            )
         })
 
         it("reverts when trying to re-initialize the account factory", async () => {
-            await expect(async () => await accountFactoryContract.initialize(entryPoint)).rejects.toThrow()
+            await expect(
+                async () => await accountFactoryContract.initialize(entryPoint),
+            ).rejects.toThrow()
         })
     })
 
     describe("addAccount", () => {
         beforeEach(async () => {
             await localDeploy()
-            await initAccountFactory(deployer, accountFactoryContract, entryPointContract)
-            await deployAccount(deployer, account, entryPointContract, owner, prefund, initialBalance)
+            await initAccountFactory(
+                deployer,
+                accountFactoryContract,
+                entryPointContract,
+            )
+            await deployAccount(
+                deployer,
+                account,
+                entryPointContract,
+                owner,
+                prefund,
+                initialBalance,
+            )
         })
 
         it("adds an already deployed account smart contract", async () => {
@@ -101,12 +136,16 @@ describe("AccountFactory", () => {
         })
 
         it("reverts if the account contract does not have the same entry point", async () => {
-            await expect(async () => await accountFactoryContract.addAccount(account)).rejects.toThrow()
+            await expect(
+                async () => await accountFactoryContract.addAccount(account),
+            ).rejects.toThrow()
         })
 
         it("reverts if the account was already added", async () => {
             await addAccountToFactory(deployer, accountFactoryContract, account)
-            await expect(async () => await accountFactoryContract.addAccount(account)).rejects.toThrow()
+            await expect(
+                async () => await accountFactoryContract.addAccount(account),
+            ).rejects.toThrow()
         })
 
         it("emits an `AccountAdded` event", async () => {
@@ -114,18 +153,34 @@ describe("AccountFactory", () => {
 
             // Emits an `AccountAdded``event
             const events = await accountFactoryContract.fetchEvents()
-            expect(events[0]?.event.data).toEqual(AccountAddedEvent.fromValue({ sender: deployer, factory: accountFactory }))
+            expect(events[0]?.event.data).toEqual(
+                AccountAddedEvent.fromValue({
+                    sender: deployer,
+                    factory: accountFactory,
+                }),
+            )
         })
     })
 
     describe("getPublicKey", () => {
         beforeEach(async () => {
             await localDeploy()
-            await initAccountFactory(deployer, accountFactoryContract, entryPointContract)
+            await initAccountFactory(
+                deployer,
+                accountFactoryContract,
+                entryPointContract,
+            )
         })
 
         it("returns the public key for an existing account when given the secp256k1 owner", async () => {
-            await deployAccount(deployer, account, entryPointContract, owner, prefund, initialBalance)
+            await deployAccount(
+                deployer,
+                account,
+                entryPointContract,
+                owner,
+                prefund,
+                initialBalance,
+            )
             await addAccountToFactory(deployer, accountFactoryContract, account)
 
             const publicKey = await accountFactoryContract.getPublicKey(owner)

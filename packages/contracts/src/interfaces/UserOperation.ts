@@ -1,13 +1,13 @@
 import {
     Bytes,
-    createEcdsaV2,
-    createForeignCurveV2,
     Crypto,
     Field,
     PublicKey,
     Struct,
     UInt64,
-} from "o1js";
+    createEcdsaV2,
+    createForeignCurveV2,
+} from "o1js"
 
 // TODO: Adjust to secp256r1
 export class Secp256k1 extends createForeignCurveV2(

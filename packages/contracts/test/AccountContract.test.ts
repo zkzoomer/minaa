@@ -1,8 +1,20 @@
 import { Field, Mina, Poseidon, UInt64 } from "o1js"
 import { AccountContract } from "../src/contracts/AccountContract"
-import { Secp256k1, Secp256k1Scalar, Secp256k1Signature, UserOperation, UserOperationCallData } from "../src/interfaces/UserOperation"
-import { proofsEnabled, initLocalBlockchain, setAccountContract, FEE, settleEntryPoint } from "./test-utils"
 import { EntryPoint } from "../src/contracts/EntryPoint"
+import {
+    Secp256k1,
+    Secp256k1Scalar,
+    Secp256k1Signature,
+    UserOperation,
+    UserOperationCallData,
+} from "../src/interfaces/UserOperation"
+import {
+    FEE,
+    initLocalBlockchain,
+    proofsEnabled,
+    setAccountContract,
+    settleEntryPoint,
+} from "./test-utils"
 
 // A private key is a random scalar of secp256k1
 const privateKey = Secp256k1Scalar.random()
@@ -72,36 +84,71 @@ describe("AccountContract", () => {
             await localDeploy()
 
             // Initialize the account contract
-            await setAccountContract(deployer, account, entryPointContract, owner, prefund, initialBalance)
+            await setAccountContract(
+                deployer,
+                account,
+                entryPointContract,
+                owner,
+                prefund,
+                initialBalance,
+            )
 
             // Verify both `entryPoint` and `owner` are set accordingly
-            expect(accountContract.entryPoint.get().toJSON()).toEqual(entryPoint.toJSON())
-            expect(accountContract.owner.get().x.toString()).toEqual(owner.x.toString())
-            expect(accountContract.owner.get().y.toString()).toEqual(owner.y.toString())
+            expect(accountContract.entryPoint.get().toJSON()).toEqual(
+                entryPoint.toJSON(),
+            )
+            expect(accountContract.owner.get().x.toString()).toEqual(
+                owner.x.toString(),
+            )
+            expect(accountContract.owner.get().y.toString()).toEqual(
+                owner.y.toString(),
+            )
 
             // Prefunds the account
-            let balance = await entryPointContract.balanceOf(account)
+            const balance = await entryPointContract.balanceOf(account)
             expect(balance.toString()).toEqual(prefund.toString())
 
             // Emits an `AccountInitialized``event
             const events = await accountContract.fetchEvents()
-            expect(events[0]?.type).toEqual('AccountInitialized')
+            expect(events[0]?.type).toEqual("AccountInitialized")
         })
 
         it("reverts when trying to re-initialize an account", async () => {
             await localDeploy()
-            await setAccountContract(deployer, account, entryPointContract, owner, prefund, initialBalance)
+            await setAccountContract(
+                deployer,
+                account,
+                entryPointContract,
+                owner,
+                prefund,
+                initialBalance,
+            )
 
-            await expect(async () => await accountContract.initialize(entryPointContract.address, owner, prefund, initialBalance)).rejects.toThrow();
+            await expect(
+                async () =>
+                    await accountContract.initialize(
+                        entryPointContract.address,
+                        owner,
+                        prefund,
+                        initialBalance,
+                    ),
+            ).rejects.toThrow()
         })
     })
-    
+
     describe("validateUserOpAndExecute", () => {
         let userOp: UserOperation
 
         beforeEach(async () => {
             await localDeploy()
-            await setAccountContract(deployer, account, entryPointContract, owner, prefund, initialBalance)
+            await setAccountContract(
+                deployer,
+                account,
+                entryPointContract,
+                owner,
+                prefund,
+                initialBalance,
+            )
 
             userOp = new UserOperation({
                 sender: account.key.toPublicKey(),
@@ -115,19 +162,25 @@ describe("AccountContract", () => {
             })
         })
 
-        it("reverts when given an invalid signature", async () => {            
+        it("reverts when given an invalid signature", async () => {
             // Generating an invalid signature
             const bogusSignature = Secp256k1Signature.signHash(
                 Secp256k1Scalar.from(350).toBigInt(),
                 privateKey.toBigInt(),
-            );
+            )
 
-            await expect(async () => await Mina.transaction(
-                { sender: deployer, fee: FEE },
-                async () => {
-                    await accountContract.validateUserOpAndExecute(userOp, bogusSignature)
-                },
-            )).rejects.toThrow();
+            await expect(
+                async () =>
+                    await Mina.transaction(
+                        { sender: deployer, fee: FEE },
+                        async () => {
+                            await accountContract.validateUserOpAndExecute(
+                                userOp,
+                                bogusSignature,
+                            )
+                        },
+                    ),
+            ).rejects.toThrow()
         })
 
         it("sends the `amount` to the `recipient`", async () => {
@@ -135,14 +188,21 @@ describe("AccountContract", () => {
 
             const userOpHash = await entryPointContract.getUserOpHash(userOp)
             const signature = Secp256k1Signature.signHash(
-                (new Secp256k1Scalar([userOpHash, Field(0), Field(0)])).toBigInt(),
+                new Secp256k1Scalar([
+                    userOpHash,
+                    Field(0),
+                    Field(0),
+                ]).toBigInt(),
                 privateKey.toBigInt(),
             )
 
             const tx = await Mina.transaction(
                 { sender, fee: FEE },
                 async () => {
-                    await accountContract.validateUserOpAndExecute(userOp, signature)
+                    await accountContract.validateUserOpAndExecute(
+                        userOp,
+                        signature,
+                    )
                 },
             )
             await tx.prove()
@@ -150,32 +210,47 @@ describe("AccountContract", () => {
             await settleEntryPoint(entryPointContract, sender)
 
             const balance = await Mina.getBalance(recipient)
-            expect(balance.sub(oldBalance).toString()).toEqual(userOp.calldata.amount.toString())
+            expect(balance.sub(oldBalance).toString()).toEqual(
+                userOp.calldata.amount.toString(),
+            )
         })
 
         it("reverts when given a replayed nonce", async () => {
             const userOpHash = await entryPointContract.getUserOpHash(userOp)
             const signature = Secp256k1Signature.signHash(
-                (new Secp256k1Scalar([userOpHash, Field(0), Field(0)])).toBigInt(),
+                new Secp256k1Scalar([
+                    userOpHash,
+                    Field(0),
+                    Field(0),
+                ]).toBigInt(),
                 privateKey.toBigInt(),
             )
 
             const tx = await Mina.transaction(
                 { sender, fee: FEE },
                 async () => {
-                    await accountContract.validateUserOpAndExecute(userOp, signature)
+                    await accountContract.validateUserOpAndExecute(
+                        userOp,
+                        signature,
+                    )
                 },
             )
             await tx.prove()
             await tx.sign([sender.key]).send()
             await settleEntryPoint(entryPointContract, sender)
-            
-            await expect(async () => await Mina.transaction(
-                { sender: deployer, fee: FEE },
-                async () => {
-                    await accountContract.validateUserOpAndExecute(userOp, signature)
-                },
-            )).rejects.toThrow();
+
+            await expect(
+                async () =>
+                    await Mina.transaction(
+                        { sender: deployer, fee: FEE },
+                        async () => {
+                            await accountContract.validateUserOpAndExecute(
+                                userOp,
+                                signature,
+                            )
+                        },
+                    ),
+            ).rejects.toThrow()
         })
     })
 
@@ -185,24 +260,41 @@ describe("AccountContract", () => {
         beforeAll(() => {
             const amount = UInt64.from(350)
             const fee = UInt64.from(42)
-    
+
             // Defining a user operation
             const calldata = new UserOperationCallData({ recipient, amount })
-            const userOp = new UserOperation({ sender, nonce: Field(42), key: Field(69), calldata, fee })
+            const userOp = new UserOperation({
+                sender,
+                nonce: Field(42),
+                key: Field(69),
+                calldata,
+                fee,
+            })
             userOpHash = Poseidon.hashPacked(UserOperation, userOp)
         })
 
         beforeEach(async () => {
             await localDeploy()
-            await setAccountContract(deployer, account, entryPointContract, owner, prefund, initialBalance)
+            await setAccountContract(
+                deployer,
+                account,
+                entryPointContract,
+                owner,
+                prefund,
+                initialBalance,
+            )
         })
 
         it("verifies a valid signature", async () => {
             // Generating a valid signature
             const signature = Secp256k1Signature.signHash(
-                (new Secp256k1Scalar([userOpHash, Field(0), Field(0)])).toBigInt(),
+                new Secp256k1Scalar([
+                    userOpHash,
+                    Field(0),
+                    Field(0),
+                ]).toBigInt(),
                 privateKey.toBigInt(),
-            );
+            )
 
             const tx = await Mina.transaction(
                 { sender, fee: FEE },
@@ -219,14 +311,20 @@ describe("AccountContract", () => {
             const bogusSignature = Secp256k1Signature.signHash(
                 Secp256k1Scalar.from(350).toBigInt(),
                 privateKey.toBigInt(),
-            );
+            )
 
-            await expect(async () => await Mina.transaction(
-                { sender: deployer, fee: FEE },
-                async () => {
-                    await accountContract.verifySignature(userOpHash, bogusSignature)
-                },
-            )).rejects.toThrow();
+            await expect(
+                async () =>
+                    await Mina.transaction(
+                        { sender: deployer, fee: FEE },
+                        async () => {
+                            await accountContract.verifySignature(
+                                userOpHash,
+                                bogusSignature,
+                            )
+                        },
+                    ),
+            ).rejects.toThrow()
         })
     })
 })

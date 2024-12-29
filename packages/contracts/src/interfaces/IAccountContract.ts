@@ -1,5 +1,5 @@
-import { Field, PublicKey, SmartContract, UInt64 } from "o1js";
-import { UserOperation } from "./UserOperation";
+import { type Field, SmartContract, type UInt64 } from "o1js"
+import type { Ecdsa, UserOperation } from "./UserOperation"
 
 export abstract class IAccountContract extends SmartContract {
     /**
@@ -14,7 +14,7 @@ export abstract class IAccountContract extends SmartContract {
      */
     abstract validateUserOpAndExecute(
         userOp: UserOperation,
-        signature: any,
+        signature: Ecdsa,
         missingAccountFunds: UInt64,
     ): Promise<Field>
 
@@ -23,8 +23,5 @@ export abstract class IAccountContract extends SmartContract {
      * @param dataHash hash of the request data, used as the basis for the signature
      * @param signature user operation signature
      */
-    abstract verifySignature(
-        dataHash: Field,
-        signature: any,
-    ): Promise<void>
+    abstract verifySignature(dataHash: Field, signature: Ecdsa): Promise<void>
 }

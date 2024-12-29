@@ -4,9 +4,9 @@ import {
     SmartContract,
     Struct,
     UInt64,
-    Void,
+    type Void,
 } from "o1js"
-import { Ecdsa, UserOperation } from "./UserOperation"
+import type { Ecdsa, UserOperation } from "./UserOperation"
 
 /**
  * Withdrawal struct
@@ -53,7 +53,7 @@ export class UserOperationEvent extends Struct({
     userOpHash: Field,
     sender: PublicKey,
     key: Field,
-    nonce: Field, 
+    nonce: Field,
 }) {}
 
 export abstract class IEntryPoint extends SmartContract {
@@ -83,10 +83,15 @@ export abstract class IEntryPoint extends SmartContract {
      * Withdraws from an account's deposit. This will call the account's contract to validate the withdrawal.
      * @param account account being withdrawn from
      * @param recipient account receiving the withdrawn amount
-     * @param amount amount being withdrawn 
+     * @param amount amount being withdrawn
      * @param signature user operation signature
      */
-    abstract withdrawTo(account: PublicKey, recipient: PublicKey, amount: UInt64, signature: Ecdsa): Promise<Void>
+    abstract withdrawTo(
+        account: PublicKey,
+        recipient: PublicKey,
+        amount: UInt64,
+        signature: Ecdsa,
+    ): Promise<Void>
 
     /**
      * Executes a `UserOperation`
@@ -94,7 +99,11 @@ export abstract class IEntryPoint extends SmartContract {
      * @param signature user operation signature
      * @param beneficiary address to receive the fees
      */
-    abstract handleOp(userOp: UserOperation, signature: Ecdsa, beneficiary: PublicKey): Promise<Void>
+    abstract handleOp(
+        userOp: UserOperation,
+        signature: Ecdsa,
+        beneficiary: PublicKey,
+    ): Promise<Void>
 
     /**
      * Generate a request ID - unique identifier for this request
