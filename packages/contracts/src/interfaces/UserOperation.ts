@@ -14,7 +14,6 @@ export class Curve extends createForeignCurve(
         ? Crypto.CurveParams.Secp256r1
         : Crypto.CurveParams.Secp256k1,
 ) {}
-console.log("CURVE: ", process.env.SECP256R1)
 export class CurveScalar extends Curve.Scalar {}
 export class CurveSignature extends createEcdsa(Curve) {}
 
