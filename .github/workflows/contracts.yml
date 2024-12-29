@@ -9,19 +9,6 @@ jobs:
   test:
     name: Test & Build
     runs-on: ubuntu-latest
-    services:
-      mina-local-network:
-        image: o1labs/mina-local-network:compatible-latest-lightnet
-        env:
-          NETWORK_TYPE: "single-node"
-          PROOF_LEVEL: "none"
-          LOG_LEVEL: "Info"
-        ports:
-          - 3085:3085
-          - 5432:5432
-          - 8080:8080
-          - 8181:8181
-          - 8282:8282
     steps:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
