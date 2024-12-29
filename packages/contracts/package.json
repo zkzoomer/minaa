@@ -17,7 +17,7 @@
         "jest": "^29.7.0",
         "ts-jest": "^29.2.2"
     },
-    "peerDependencies": {
-        "o1js": "2.0.0"
+    "dependencies": {
+        "o1js": "^2.2.0"
     }
 }
