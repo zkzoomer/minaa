@@ -5,19 +5,19 @@ import {
     PublicKey,
     Struct,
     UInt64,
-    createEcdsaV2,
-    createForeignCurveV2,
+    createEcdsa,
+    createForeignCurve,
 } from "o1js"
 
 // TODO: Adjust to secp256r1
-export class Secp256k1 extends createForeignCurveV2(
+export class Secp256k1 extends createForeignCurve(
     Crypto.CurveParams.Secp256k1,
 ) {}
 export class Secp256k1Scalar extends Secp256k1.Scalar {}
-export class Secp256k1Signature extends createEcdsaV2(Secp256k1) {}
+export class Secp256k1Signature extends createEcdsa(Secp256k1) {}
 
 // create an instance of ECDSA over secp256k1
-export class Ecdsa extends createEcdsaV2(Secp256k1) {}
+export class Ecdsa extends createEcdsa(Secp256k1) {}
 export class Bytes32 extends Bytes(32) {}
 
 /**
@@ -34,8 +34,8 @@ export class UserOperationCallData extends Struct({
  * User Operation struct
  * @param sender the sender account of this request
  * @param nonce unique value the sender uses to verify the operation is not a replay
+ * @param key nonce key
  * @param calldata call to execute on this account
- * @param signature sender-verified signature for the request and EntryPoint address
  * @param fee transaction fee
  */
 export class UserOperation extends Struct({

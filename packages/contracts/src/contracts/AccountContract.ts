@@ -82,7 +82,7 @@ export class AccountContract extends IAccountContract {
         await entryPointContract.depositTo(this.address, prefund)
 
         // Set the initial balance of the account
-        AccountUpdate.createSigned(this.sender.getAndRequireSignatureV2()).send(
+        AccountUpdate.createSigned(this.sender.getAndRequireSignature()).send(
             { to: this, amount: initialBalance },
         )
 
@@ -128,7 +128,7 @@ export class AccountContract extends IAccountContract {
      */
     async verifySignature(userOperationHash: Field, signature: Ecdsa) {
         signature
-            .verifySignedHashV2(
+            .verifySignedHash(
                 new Secp256k1Scalar([userOperationHash, Field(0), Field(0)]),
                 this.owner.getAndRequireEquals(),
             )
