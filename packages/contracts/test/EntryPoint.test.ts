@@ -73,7 +73,6 @@ describe("EntryPoint", () => {
         })
     })
 
-    // TODO: issue below
     describe("depositTo", () => {
         let tx: Mina.Transaction<false, false>
         let deposit: UInt64
