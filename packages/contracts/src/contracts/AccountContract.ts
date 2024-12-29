@@ -1,7 +1,7 @@
 import {
     AccountUpdate,
     Bool,
-    DeployArgs,
+    type DeployArgs,
     Field,
     PublicKey,
     State,
@@ -11,7 +11,12 @@ import {
     state,
 } from "o1js"
 import { IAccountContract } from "../interfaces/IAccountContract"
-import { Ecdsa, Secp256k1, Secp256k1Scalar, UserOperation } from "../interfaces/UserOperation"
+import {
+    Ecdsa,
+    Secp256k1,
+    Secp256k1Scalar,
+    UserOperation,
+} from "../interfaces/UserOperation"
 import { EntryPoint } from "./EntryPoint"
 
 export interface AccountContractDeployProps
@@ -40,7 +45,7 @@ const deadOwner = Secp256k1.generator.scale(deadKey)
 export class AccountContract extends IAccountContract {
     events = {
         AccountInitialized: AccountInitializedEvent,
-    };
+    }
 
     @state(PublicKey)
     entryPoint = State<PublicKey>(PublicKey.empty())
@@ -55,7 +60,12 @@ export class AccountContract extends IAccountContract {
      * @param initialBalance The initial balance of the account
      */
     @method
-    async initialize(entryPoint: PublicKey, owner: Secp256k1, prefund: UInt64, initialBalance: UInt64) {
+    async initialize(
+        entryPoint: PublicKey,
+        owner: Secp256k1,
+        prefund: UInt64,
+        initialBalance: UInt64,
+    ) {
         // Check that the `AccountContract` was not already initialized
         this.entryPoint.getAndRequireEquals().assertEquals(PublicKey.empty())
         const _owner = this.owner.getAndRequireEquals()
@@ -72,24 +82,39 @@ export class AccountContract extends IAccountContract {
         await entryPointContract.depositTo(this.address, prefund)
 
         // Set the initial balance of the account
-        AccountUpdate.createSigned(this.sender.getAndRequireSignatureV2()).send({ to: this, amount: initialBalance })
+        AccountUpdate.createSigned(this.sender.getAndRequireSignatureV2()).send(
+            { to: this, amount: initialBalance },
+        )
 
         // Emits an `AccountInitialized`
-        this.emitEvent('AccountInitialized', new AccountInitializedEvent({ entryPoint, account: this.address, owner }))
+        this.emitEvent(
+            "AccountInitialized",
+            new AccountInitializedEvent({
+                entryPoint,
+                account: this.address,
+                owner,
+            }),
+        )
     }
-    
+
     /// @inheritdoc IAccountContract
     @method.returns(Field)
     async validateUserOpAndExecute(
         userOp: UserOperation,
         signature: Ecdsa,
     ): Promise<Field> {
-        const entryPointContract = new EntryPoint(this.entryPoint.getAndRequireEquals())
+        const entryPointContract = new EntryPoint(
+            this.entryPoint.getAndRequireEquals(),
+        )
         entryPointContract.offchainState.setContractInstance(entryPointContract)
         const userOpHash = await entryPointContract.getUserOpHash(userOp)
 
         await this.verifySignature(userOpHash, signature)
-        await entryPointContract.validateAndUpdateNonce(userOp.sender, userOp.key, userOp.nonce)
+        await entryPointContract.validateAndUpdateNonce(
+            userOp.sender,
+            userOp.key,
+            userOp.nonce,
+        )
         await this._execute(userOp.calldata.recipient, userOp.calldata.amount)
 
         return userOpHash
@@ -102,10 +127,12 @@ export class AccountContract extends IAccountContract {
      * @param publicKey
      */
     async verifySignature(userOperationHash: Field, signature: Ecdsa) {
-        signature.verifySignedHashV2(
-            new Secp256k1Scalar([userOperationHash, Field(0), Field(0)]),
-            this.owner.getAndRequireEquals()
-        ).assertEquals(Bool(true))
+        signature
+            .verifySignedHashV2(
+                new Secp256k1Scalar([userOperationHash, Field(0), Field(0)]),
+                this.owner.getAndRequireEquals(),
+            )
+            .assertEquals(Bool(true))
     }
 
     /**

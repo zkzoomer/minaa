@@ -2,18 +2,28 @@ import {
     AccountUpdate,
     Experimental,
     Field,
-    Option,
+    type Option,
     Poseidon,
     PublicKey,
     State,
     Struct,
     UInt64,
-    Void,
+    type Void,
     method,
     state,
 } from "o1js"
-import { DepositedEvent, IEntryPoint, UserOperationEvent, Withdrawal, WithdrawnEvent } from "../interfaces/IEntryPoint"
-import { Ecdsa, NonceSequence, UserOperation } from "../interfaces/UserOperation"
+import {
+    DepositedEvent,
+    IEntryPoint,
+    UserOperationEvent,
+    Withdrawal,
+    WithdrawnEvent,
+} from "../interfaces/IEntryPoint"
+import {
+    Ecdsa,
+    NonceSequence,
+    UserOperation,
+} from "../interfaces/UserOperation"
 import { AccountContract } from "./AccountContract"
 
 // Offchain storage definition
@@ -29,11 +39,12 @@ export class EntryPoint extends IEntryPoint {
         Deposited: DepositedEvent,
         Withdrawn: WithdrawnEvent,
         UserOperation: UserOperationEvent,
-    };
+    }
 
     // Offchain storage commitment
-    @state(OffchainState.Commitments) offchainStateCommitments = offchainState.emptyCommitments()
-    offchainState = offchainState.init(this);
+    @state(OffchainState.Commitments) offchainStateCommitments =
+        offchainState.emptyCommitments()
+    offchainState = offchainState.init(this)
 
     // The account contract to call--defined to emulate a `msg.sender` behavior
     @state(Field) callee = State<Field>(Field(0))
@@ -43,8 +54,14 @@ export class EntryPoint extends IEntryPoint {
         return (await this._getNonce(sender, key)).orElse(Field(0))
     }
 
-    private async _getNonce(sender: PublicKey, key: Field): Promise<Option<Field>> {
-        return this.offchainState.fields.nonceSequenceNumber.get({ sender, key })
+    private async _getNonce(
+        sender: PublicKey,
+        key: Field,
+    ): Promise<Option<Field>> {
+        return this.offchainState.fields.nonceSequenceNumber.get({
+            sender,
+            key,
+        })
     }
 
     /// @inheritdoc IEntryPoint
@@ -60,18 +77,20 @@ export class EntryPoint extends IEntryPoint {
     @method
     async depositTo(account: PublicKey, amount: UInt64): Promise<Void> {
         // Deposit the amount to the smart contract
-        AccountUpdate.createSigned(this.sender.getAndRequireSignatureV2()).send({ to: this, amount })
+        AccountUpdate.createSigned(this.sender.getAndRequireSignatureV2()).send(
+            { to: this, amount },
+        )
 
         // Update the offchain state
         const oldAmountOption = await this._balanceOf(account)
         const oldAmount = oldAmountOption.orElse(UInt64.from(0))
         await this.offchainState.fields.depositInfo.update(account, {
             from: oldAmountOption,
-            to: oldAmount.add(amount)
+            to: oldAmount.add(amount),
         })
 
         // Emits a `Deposited` event
-        this.emitEvent('Deposited', new DepositedEvent({ account, amount }))
+        this.emitEvent("Deposited", new DepositedEvent({ account, amount }))
     }
 
     /// @inheritdoc IEntryPoint
@@ -83,8 +102,11 @@ export class EntryPoint extends IEntryPoint {
         signature: Ecdsa,
     ): Promise<Void> {
         // Withdrawal operation must have be validated by the account
-        let accountContract = new AccountContract(account)
-        let withdrawToHash = Poseidon.hashPacked(Withdrawal, new Withdrawal({ account, recipient, amount }))
+        const accountContract = new AccountContract(account)
+        const withdrawToHash = Poseidon.hashPacked(
+            Withdrawal,
+            new Withdrawal({ account, recipient, amount }),
+        )
         await accountContract.verifySignature(withdrawToHash, signature)
 
         // Update the offchain state
@@ -92,14 +114,17 @@ export class EntryPoint extends IEntryPoint {
         oldAmount.assertGreaterThanOrEqual(amount)
         await this.offchainState.fields.depositInfo.update(account, {
             from: oldAmount,
-            to: oldAmount.sub(amount)
+            to: oldAmount.sub(amount),
         })
 
         // Withdraw the amount to the recipient
-        this.send({ to: recipient, amount });
+        this.send({ to: recipient, amount })
 
         // Emits a `Withdrawn` event
-        this.emitEvent('Withdrawn', new WithdrawnEvent({ account, recipient, amount }))
+        this.emitEvent(
+            "Withdrawn",
+            new WithdrawnEvent({ account, recipient, amount }),
+        )
     }
 
     /// @inheritdoc IEntryPoint
@@ -107,21 +132,31 @@ export class EntryPoint extends IEntryPoint {
     async handleOp(
         userOp: UserOperation,
         signature: Ecdsa,
-        beneficiary: PublicKey
+        beneficiary: PublicKey,
     ): Promise<Void> {
         const fee = await this._getRequiredPrefund(userOp)
-        const userOpHash = await this._validateAndExecute(userOp, signature, fee)
+        const userOpHash = await this._validateAndExecute(
+            userOp,
+            signature,
+            fee,
+        )
         await this._compensate(beneficiary, fee)
 
         // Emits a `UserOperation`
-        this.emitEvent('UserOperation', new UserOperationEvent({ userOpHash, ...userOp }))
+        this.emitEvent(
+            "UserOperation",
+            new UserOperationEvent({ userOpHash, ...userOp }),
+        )
     }
 
     /// @inheritdoc IEntryPoint
     @method.returns(Field)
     async getUserOpHash(userOp: UserOperation): Promise<Field> {
         const hash = Poseidon.hashPacked(UserOperation, userOp)
-        return Poseidon.hashPacked(Struct({ hash: Field, address: PublicKey }), { hash, address: this.address })
+        return Poseidon.hashPacked(
+            Struct({ hash: Field, address: PublicKey }),
+            { hash, address: this.address },
+        )
     }
 
     /**
@@ -131,33 +166,32 @@ export class EntryPoint extends IEntryPoint {
      * @param nonce nonce being validated
      */
     @method
-    async validateAndUpdateNonce(
-        sender: PublicKey,
-        key: Field,
-        nonce: Field,
-    ) {
+    async validateAndUpdateNonce(sender: PublicKey, key: Field, nonce: Field) {
         // Get current nonce
         const nonceOption = await this._getNonce(sender, key)
         const currentNonce = nonceOption.orElse(Field(0))
         currentNonce.assertEquals(nonce)
 
         // Update offchain state
-        this.offchainState.fields.nonceSequenceNumber.update({ sender, key }, {
-            from: nonceOption,
-            to: currentNonce.add(Field(1))
-        })
+        this.offchainState.fields.nonceSequenceNumber.update(
+            { sender, key },
+            {
+                from: nonceOption,
+                to: currentNonce.add(Field(1)),
+            },
+        )
     }
 
     /**
      * Calls `validateUserOpAndExecute` on the corresponding account, reverts if failed validation or no required prefund
-     * @param userOp 
+     * @param userOp
      * @param signature
-     * @param requiredPrefund 
+     * @param requiredPrefund
      */
     private async _validateAndExecute(
         userOp: UserOperation,
         signature: Ecdsa,
-        fee: UInt64
+        fee: UInt64,
     ): Promise<Field> {
         // Check if the account has enough funds to pay for the operation
         const oldBalanceOption = await this._balanceOf(userOp.sender)
@@ -168,13 +202,13 @@ export class EntryPoint extends IEntryPoint {
         const accountContract = new AccountContract(userOp.sender)
         const userOpHash = await accountContract.validateUserOpAndExecute(
             userOp,
-            signature
+            signature,
         )
 
         // Decrease the deposited amount for the account by the required fee, which will be sent to the beneficiary
         await this.offchainState.fields.depositInfo.update(userOp.sender, {
             from: oldBalanceOption,
-            to: oldBalance.sub(fee)
+            to: oldBalance.sub(fee),
         })
 
         return userOpHash
@@ -204,6 +238,6 @@ export class EntryPoint extends IEntryPoint {
      */
     @method
     async settle(proof: EntryPointStateProof) {
-        await this.offchainState.settle(proof) 
+        await this.offchainState.settle(proof)
     }
 }

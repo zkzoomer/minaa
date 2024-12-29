@@ -1,15 +1,11 @@
 import {
-    AccountUpdate,
     Experimental,
     Field,
-    Option,
-    Permissions,
-    Provable,
+    type Option,
     PublicKey,
     SmartContract,
     State,
     Struct,
-    UInt64,
     method,
     state,
 } from "o1js"
@@ -26,10 +22,11 @@ export class AccountAddedEvent extends Struct({
     factory: PublicKey,
 }) {}
 
-
 // Offchain storage definition
 const { OffchainState, OffchainStateCommitments } = Experimental
-export const accountFactoryOffchainState = OffchainState({ accounts: OffchainState.Map(Secp256k1.provable, PublicKey) })
+export const accountFactoryOffchainState = OffchainState({
+    accounts: OffchainState.Map(Secp256k1.provable, PublicKey),
+})
 export class AccountFactoryStateProof extends accountFactoryOffchainState.Proof {}
 
 export class AccountFactory extends SmartContract {
@@ -41,8 +38,9 @@ export class AccountFactory extends SmartContract {
     @state(PublicKey)
     entryPoint = State<PublicKey>()
     // Offchain storage commitment
-    @state(OffchainState.Commitments) offchainStateCommitments = accountFactoryOffchainState.emptyCommitments();
-    offchainState = accountFactoryOffchainState.init(this);
+    @state(OffchainState.Commitments) offchainStateCommitments =
+        accountFactoryOffchainState.emptyCommitments()
+    offchainState = accountFactoryOffchainState.init(this)
 
     /**
      * Initializes the `AccountFactory` smart contract
@@ -67,7 +65,9 @@ export class AccountFactory extends SmartContract {
         // Instantiate the account contract
         const accountContract = new AccountContract(address)
         // Entry point must match
-        accountContract.entryPoint.getAndRequireEquals().assertEquals(this.entryPoint.getAndRequireEquals())
+        accountContract.entryPoint
+            .getAndRequireEquals()
+            .assertEquals(this.entryPoint.getAndRequireEquals())
 
         // Get the account owner
         const owner = accountContract.owner.getAndRequireEquals()
@@ -75,11 +75,17 @@ export class AccountFactory extends SmartContract {
         const oldPublicKey = await this._getPublicKey(owner)
         this.offchainState.fields.accounts.update(owner, {
             from: oldPublicKey,
-            to: address
+            to: address,
         })
 
         // Emit an `AccountAdded` event
-        this.emitEvent('AccountAdded', new AccountAddedEvent({ sender: this.sender.getAndRequireSignatureV2(), factory: this.address }))
+        this.emitEvent(
+            "AccountAdded",
+            new AccountAddedEvent({
+                sender: this.sender.getAndRequireSignatureV2(),
+                factory: this.address,
+            }),
+        )
     }
 
     /**
