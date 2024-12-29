@@ -233,7 +233,7 @@ describe("EntryPoint", () => {
                 },
             )
             await tx.prove()
-            await tx.sign([deployer.key, entryPoint.key, account.key]).send()
+            await tx.sign([deployer.key]).send()
             await settleEntryPoint(entryPointContract, deployer)
 
             return tx
