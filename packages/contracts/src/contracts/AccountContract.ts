@@ -13,8 +13,8 @@ import {
 import { IAccountContract } from "../interfaces/IAccountContract"
 import {
     Ecdsa,
-    Secp256k1,
-    Secp256k1Scalar,
+    Curve,
+    CurveScalar,
     UserOperation,
 } from "../interfaces/UserOperation"
 import { EntryPoint } from "./EntryPoint"
@@ -22,7 +22,7 @@ import { EntryPoint } from "./EntryPoint"
 export interface AccountContractDeployProps
     extends Exclude<DeployArgs, undefined> {
     entryPoint: PublicKey
-    owner: Secp256k1
+    owner: Curve
 }
 
 /***
@@ -35,12 +35,12 @@ export interface AccountContractDeployProps
 export class AccountInitializedEvent extends Struct({
     entryPoint: PublicKey,
     account: PublicKey,
-    owner: Secp256k1.provable,
+    owner: Curve.provable,
 }) {}
 
 // Defining the uninitialized state for the account contract
-const deadKey = Secp256k1Scalar.from(0xdead)
-const deadOwner = Secp256k1.generator.scale(deadKey)
+const deadKey = CurveScalar.from(0xdead)
+const deadOwner = Curve.generator.scale(deadKey)
 
 export class AccountContract extends IAccountContract {
     events = {
@@ -49,8 +49,8 @@ export class AccountContract extends IAccountContract {
 
     @state(PublicKey)
     entryPoint = State<PublicKey>(PublicKey.empty())
-    @state(Secp256k1.provable)
-    owner = State<Secp256k1>(deadOwner)
+    @state(Curve.provable)
+    owner = State<Curve>(deadOwner)
 
     /**
      * Initializes the `AccountContract` smart contract
@@ -62,7 +62,7 @@ export class AccountContract extends IAccountContract {
     @method
     async initialize(
         entryPoint: PublicKey,
-        owner: Secp256k1,
+        owner: Curve,
         prefund: UInt64,
         initialBalance: UInt64,
     ) {
@@ -129,7 +129,7 @@ export class AccountContract extends IAccountContract {
     async verifySignature(userOperationHash: Field, signature: Ecdsa) {
         signature
             .verifySignedHash(
-                new Secp256k1Scalar([userOperationHash, Field(0), Field(0)]),
+                new CurveScalar([userOperationHash, Field(0), Field(0)]),
                 this.owner.getAndRequireEquals(),
             )
             .assertEquals(Bool(true))

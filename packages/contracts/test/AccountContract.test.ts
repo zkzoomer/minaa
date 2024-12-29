@@ -2,9 +2,9 @@ import { Field, Mina, Poseidon, UInt64 } from "o1js"
 import { AccountContract } from "../src/contracts/AccountContract"
 import { EntryPoint } from "../src/contracts/EntryPoint"
 import {
-    Secp256k1,
-    Secp256k1Scalar,
-    Secp256k1Signature,
+    Curve,
+    CurveScalar,
+    CurveSignature,
     UserOperation,
     UserOperationCallData,
 } from "../src/interfaces/UserOperation"
@@ -17,8 +17,8 @@ import {
 } from "./test-utils"
 
 // A private key is a random scalar of secp256k1
-const privateKey = Secp256k1Scalar.random()
-const owner = Secp256k1.generator.scale(privateKey)
+const privateKey = CurveScalar.random()
+const owner = Curve.generator.scale(privateKey)
 
 // Define a prefund amount
 const prefund = UInt64.from(1_000_000)
@@ -164,8 +164,8 @@ describe("AccountContract", () => {
 
         it("reverts when given an invalid signature", async () => {
             // Generating an invalid signature
-            const bogusSignature = Secp256k1Signature.signHash(
-                Secp256k1Scalar.from(350).toBigInt(),
+            const bogusSignature = CurveSignature.signHash(
+                CurveScalar.from(350).toBigInt(),
                 privateKey.toBigInt(),
             )
 
@@ -187,8 +187,8 @@ describe("AccountContract", () => {
             const oldBalance = await Mina.getBalance(recipient)
 
             const userOpHash = await entryPointContract.getUserOpHash(userOp)
-            const signature = Secp256k1Signature.signHash(
-                new Secp256k1Scalar([
+            const signature = CurveSignature.signHash(
+                new CurveScalar([
                     userOpHash,
                     Field(0),
                     Field(0),
@@ -217,8 +217,8 @@ describe("AccountContract", () => {
 
         it("reverts when given a replayed nonce", async () => {
             const userOpHash = await entryPointContract.getUserOpHash(userOp)
-            const signature = Secp256k1Signature.signHash(
-                new Secp256k1Scalar([
+            const signature = CurveSignature.signHash(
+                new CurveScalar([
                     userOpHash,
                     Field(0),
                     Field(0),
@@ -287,8 +287,8 @@ describe("AccountContract", () => {
 
         it("verifies a valid signature", async () => {
             // Generating a valid signature
-            const signature = Secp256k1Signature.signHash(
-                new Secp256k1Scalar([
+            const signature = CurveSignature.signHash(
+                new CurveScalar([
                     userOpHash,
                     Field(0),
                     Field(0),
@@ -308,8 +308,8 @@ describe("AccountContract", () => {
 
         it("reverts when given an invalid signature", async () => {
             // Generating an invalid signature
-            const bogusSignature = Secp256k1Signature.signHash(
-                Secp256k1Scalar.from(350).toBigInt(),
+            const bogusSignature = CurveSignature.signHash(
+                CurveScalar.from(350).toBigInt(),
                 privateKey.toBigInt(),
             )
 

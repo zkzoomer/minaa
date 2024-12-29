@@ -8,7 +8,7 @@ import {
     EntryPoint,
     offchainState as entryPointOffchainState,
 } from "../src/contracts/EntryPoint"
-import { Secp256k1, Secp256k1Scalar } from "../src/interfaces/UserOperation"
+import { Curve, CurveScalar } from "../src/interfaces/UserOperation"
 import {
     FEE,
     addAccountToFactory,
@@ -19,8 +19,8 @@ import {
 } from "./test-utils"
 
 // A private key is a random scalar of secp256k1
-const privateKey = Secp256k1Scalar.random()
-const owner = Secp256k1.generator.scale(privateKey)
+const privateKey = CurveScalar.random()
+const owner = Curve.generator.scale(privateKey)
 
 // Define a prefund amount
 const prefund = UInt64.from(350)

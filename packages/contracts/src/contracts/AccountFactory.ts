@@ -9,7 +9,7 @@ import {
     method,
     state,
 } from "o1js"
-import { Secp256k1 } from "../interfaces/UserOperation"
+import { Curve } from "../interfaces/UserOperation"
 import { AccountContract } from "./AccountContract"
 
 /**
@@ -25,7 +25,7 @@ export class AccountAddedEvent extends Struct({
 // Offchain storage definition
 const { OffchainState, OffchainStateCommitments } = Experimental
 export const accountFactoryOffchainState = OffchainState({
-    accounts: OffchainState.Map(Secp256k1.provable, PublicKey),
+    accounts: OffchainState.Map(Curve.provable, PublicKey),
 })
 export class AccountFactoryStateProof extends accountFactoryOffchainState.Proof {}
 
@@ -94,11 +94,11 @@ export class AccountFactory extends SmartContract {
      * @returns The public key of the account
      */
     @method.returns(PublicKey)
-    async getPublicKey(owner: Secp256k1): Promise<PublicKey> {
+    async getPublicKey(owner: Curve): Promise<PublicKey> {
         return (await this._getPublicKey(owner)).orElse(PublicKey.empty())
     }
 
-    async _getPublicKey(owner: Secp256k1): Promise<Option<PublicKey>> {
+    async _getPublicKey(owner: Curve): Promise<Option<PublicKey>> {
         return this.offchainState.fields.accounts.get(owner)
     }
 

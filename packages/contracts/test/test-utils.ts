@@ -9,7 +9,7 @@ import {
 import { AccountContract, type AccountFactory } from "../src"
 import { accountFactoryOffchainState } from "../src/contracts/AccountFactory"
 import type { EntryPoint } from "../src/contracts/EntryPoint"
-import type { Secp256k1 } from "../src/interfaces/UserOperation"
+import type { Curve } from "../src/interfaces/UserOperation"
 
 export const proofsEnabled = process.env.SKIP_PROOFS !== "true"
 if (!proofsEnabled) console.log("Skipping proof generation in tests.")
@@ -51,7 +51,7 @@ export const deployAccount = async (
     deployer: Mina.TestPublicKey,
     account: Mina.TestPublicKey,
     entryPointContract: EntryPoint,
-    owner: Secp256k1,
+    owner: Curve,
     prefund: UInt64,
     initialBalance: UInt64,
 ) => {
@@ -79,7 +79,7 @@ export const setAccountContract = async (
     deployer: Mina.TestPublicKey,
     account: Mina.TestPublicKey,
     entryPointContract: EntryPoint,
-    owner: Secp256k1,
+    owner: Curve,
     prefund: UInt64,
     initialBalance: UInt64,
 ) => {

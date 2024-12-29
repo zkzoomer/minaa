@@ -9,15 +9,17 @@ import {
     createForeignCurve,
 } from "o1js"
 
-// TODO: Adjust to secp256r1
-export class Secp256k1 extends createForeignCurve(
-    Crypto.CurveParams.Secp256k1,
+export class Curve extends createForeignCurve(
+    process.env.SECP256R1 === "true"
+        ? Crypto.CurveParams.Secp256r1
+        : Crypto.CurveParams.Secp256k1,
 ) {}
-export class Secp256k1Scalar extends Secp256k1.Scalar {}
-export class Secp256k1Signature extends createEcdsa(Secp256k1) {}
+console.log("CURVE: ", process.env.SECP256R1)
+export class CurveScalar extends Curve.Scalar {}
+export class CurveSignature extends createEcdsa(Curve) {}
 
-// create an instance of ECDSA over secp256k1
-export class Ecdsa extends createEcdsa(Secp256k1) {}
+// create an instance of ECDSA over the curve
+export class Ecdsa extends createEcdsa(Curve) {}
 export class Bytes32 extends Bytes(32) {}
 
 /**

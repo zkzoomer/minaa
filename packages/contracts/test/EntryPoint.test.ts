@@ -8,9 +8,9 @@ import {
     WithdrawnEvent,
 } from "../src/interfaces/IEntryPoint"
 import {
-    Secp256k1,
-    Secp256k1Scalar,
-    Secp256k1Signature,
+    Curve,
+    CurveScalar,
+    CurveSignature,
     UserOperation,
     UserOperationCallData,
 } from "../src/interfaces/UserOperation"
@@ -30,8 +30,8 @@ describe("EntryPoint", () => {
     let recipient: Mina.TestPublicKey
     let beneficiary: Mina.TestPublicKey
     let entryPointContract: EntryPoint
-    let privateKey: Secp256k1Scalar
-    let owner: Secp256k1
+    let privateKey: CurveScalar
+    let owner: Curve
 
     // Tests break when doing a `beforeEach`
     beforeAll(async () => {
@@ -45,8 +45,8 @@ describe("EntryPoint", () => {
         entryPointContract.offchainState.setContractInstance(entryPointContract)
 
         // A private key is a random scalar of secp256k1
-        privateKey = Secp256k1Scalar.random()
-        owner = Secp256k1.generator.scale(privateKey)
+        privateKey = CurveScalar.random()
+        owner = Curve.generator.scale(privateKey)
 
         if (proofsEnabled) {
             await offchainState.compile()
@@ -162,8 +162,8 @@ describe("EntryPoint", () => {
                     amount,
                 }),
             )
-            const signature = Secp256k1Signature.signHash(
-                new Secp256k1Scalar([
+            const signature = CurveSignature.signHash(
+                new CurveScalar([
                     withdrawToHash,
                     Field(0),
                     Field(0),
@@ -221,7 +221,7 @@ describe("EntryPoint", () => {
 
         const sendHandleOp = async (
             userOp: UserOperation,
-            signature: Secp256k1Signature,
+            signature: CurveSignature,
         ) => {
             const tx = await Mina.transaction(
                 { sender: deployer, fee: FEE },
@@ -265,8 +265,8 @@ describe("EntryPoint", () => {
 
         it("validates and executes the UserOperation, sending the fee to the beneficiary", async () => {
             const userOpHash = await entryPointContract.getUserOpHash(userOp)
-            const signature = Secp256k1Signature.signHash(
-                new Secp256k1Scalar([
+            const signature = CurveSignature.signHash(
+                new CurveScalar([
                     userOpHash,
                     Field(0),
                     Field(0),
@@ -302,8 +302,8 @@ describe("EntryPoint", () => {
 
         it("reverts under a replay attack", async () => {
             const userOpHash = await entryPointContract.getUserOpHash(userOp)
-            const signature = Secp256k1Signature.signHash(
-                new Secp256k1Scalar([
+            const signature = CurveSignature.signHash(
+                new CurveScalar([
                     userOpHash,
                     Field(0),
                     Field(0),
@@ -334,8 +334,8 @@ describe("EntryPoint", () => {
             }
             const userOpHash =
                 await entryPointContract.getUserOpHash(invalidUserOp)
-            const signature = Secp256k1Signature.signHash(
-                new Secp256k1Scalar([
+            const signature = CurveSignature.signHash(
+                new CurveScalar([
                     userOpHash,
                     Field(0),
                     Field(0),
@@ -359,8 +359,8 @@ describe("EntryPoint", () => {
         })
 
         it("reverts if the signature is invalid", async () => {
-            const signature = Secp256k1Signature.signHash(
-                new Secp256k1Scalar([
+            const signature = CurveSignature.signHash(
+                new CurveScalar([
                     Field.random(),
                     Field.random(),
                     Field.random(),
