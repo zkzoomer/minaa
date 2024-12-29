@@ -1,8 +1,4 @@
-import {
-    Mina,
-    type PublicKey,
-    type UInt64,
-} from "o1js"
+import { Mina, type PublicKey, type UInt64 } from "o1js"
 import { AccountContract, type AccountFactory } from "../src"
 import type { EntryPoint } from "../src/contracts/EntryPoint"
 import type { Curve } from "../src/interfaces/UserOperation"

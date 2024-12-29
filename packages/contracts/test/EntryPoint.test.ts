@@ -265,11 +265,7 @@ describe("EntryPoint", () => {
         it("validates and executes the UserOperation, sending the fee to the beneficiary", async () => {
             const userOpHash = await entryPointContract.getUserOpHash(userOp)
             const signature = CurveSignature.signHash(
-                new CurveScalar([
-                    userOpHash,
-                    Field(0),
-                    Field(0),
-                ]).toBigInt(),
+                new CurveScalar([userOpHash, Field(0), Field(0)]).toBigInt(),
                 privateKey.toBigInt(),
             )
             await sendHandleOp(userOp, signature)
@@ -302,11 +298,7 @@ describe("EntryPoint", () => {
         it("reverts under a replay attack", async () => {
             const userOpHash = await entryPointContract.getUserOpHash(userOp)
             const signature = CurveSignature.signHash(
-                new CurveScalar([
-                    userOpHash,
-                    Field(0),
-                    Field(0),
-                ]).toBigInt(),
+                new CurveScalar([userOpHash, Field(0), Field(0)]).toBigInt(),
                 privateKey.toBigInt(),
             )
 
@@ -334,11 +326,7 @@ describe("EntryPoint", () => {
             const userOpHash =
                 await entryPointContract.getUserOpHash(invalidUserOp)
             const signature = CurveSignature.signHash(
-                new CurveScalar([
-                    userOpHash,
-                    Field(0),
-                    Field(0),
-                ]).toBigInt(),
+                new CurveScalar([userOpHash, Field(0), Field(0)]).toBigInt(),
                 privateKey.toBigInt(),
             )
 

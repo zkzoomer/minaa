@@ -12,9 +12,9 @@ import {
 } from "o1js"
 import { IAccountContract } from "../interfaces/IAccountContract"
 import {
-    Ecdsa,
     Curve,
     CurveScalar,
+    Ecdsa,
     UserOperation,
 } from "../interfaces/UserOperation"
 import { EntryPoint } from "./EntryPoint"
@@ -82,9 +82,10 @@ export class AccountContract extends IAccountContract {
         await entryPointContract.depositTo(this.address, prefund)
 
         // Set the initial balance of the account
-        AccountUpdate.createSigned(this.sender.getAndRequireSignature()).send(
-            { to: this, amount: initialBalance },
-        )
+        AccountUpdate.createSigned(this.sender.getAndRequireSignature()).send({
+            to: this,
+            amount: initialBalance,
+        })
 
         // Emits an `AccountInitialized`
         this.emitEvent(

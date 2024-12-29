@@ -188,11 +188,7 @@ describe("AccountContract", () => {
 
             const userOpHash = await entryPointContract.getUserOpHash(userOp)
             const signature = CurveSignature.signHash(
-                new CurveScalar([
-                    userOpHash,
-                    Field(0),
-                    Field(0),
-                ]).toBigInt(),
+                new CurveScalar([userOpHash, Field(0), Field(0)]).toBigInt(),
                 privateKey.toBigInt(),
             )
 
@@ -218,11 +214,7 @@ describe("AccountContract", () => {
         it("reverts when given a replayed nonce", async () => {
             const userOpHash = await entryPointContract.getUserOpHash(userOp)
             const signature = CurveSignature.signHash(
-                new CurveScalar([
-                    userOpHash,
-                    Field(0),
-                    Field(0),
-                ]).toBigInt(),
+                new CurveScalar([userOpHash, Field(0), Field(0)]).toBigInt(),
                 privateKey.toBigInt(),
             )
 
@@ -288,11 +280,7 @@ describe("AccountContract", () => {
         it("verifies a valid signature", async () => {
             // Generating a valid signature
             const signature = CurveSignature.signHash(
-                new CurveScalar([
-                    userOpHash,
-                    Field(0),
-                    Field(0),
-                ]).toBigInt(),
+                new CurveScalar([userOpHash, Field(0), Field(0)]).toBigInt(),
                 privateKey.toBigInt(),
             )
 
