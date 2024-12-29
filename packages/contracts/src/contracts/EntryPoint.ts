@@ -46,9 +46,6 @@ export class EntryPoint extends IEntryPoint {
         offchainState.emptyCommitments()
     offchainState = offchainState.init(this)
 
-    // The account contract to call--defined to emulate a `msg.sender` behavior
-    @state(Field) callee = State<Field>(Field(0))
-
     /// @inheritdoc IEntryPoint
     async getNonce(sender: PublicKey, key: Field): Promise<Field> {
         return (await this._getNonce(sender, key)).orElse(Field(0))
@@ -160,14 +157,13 @@ export class EntryPoint extends IEntryPoint {
         )
     }
 
-    /**
-     * Validates a nonce uniqueness for the given account, and updates it. Reverts if the nonce is not valid
-     * @param sender account being validated
-     * @param key nonce key being validated
-     * @param nonce nonce being validated
-     */
+    /// @inheritdoc IEntryPoint
     @method
-    async validateAndUpdateNonce(sender: PublicKey, key: Field, nonce: Field) {
+    async validateAndUpdateNonce(
+        sender: PublicKey,
+        key: Field,
+        nonce: Field,
+    ): Promise<Void> {
         // Get current nonce
         const nonceOption = await this._getNonce(sender, key)
         const currentNonce = nonceOption.orElse(Field(0))

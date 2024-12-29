@@ -1,21 +1,30 @@
-import { type Field, SmartContract, type UInt64 } from "o1js"
-import type { Ecdsa, UserOperation } from "./UserOperation"
+import { type Field, PublicKey, SmartContract, Struct } from "o1js"
+import { Curve, type Ecdsa, type UserOperation } from "./UserOperation"
+
+/***
+ * An event emitted after each successful request
+ * @param userOpHash unique identifier for the request (hash its entire content, except signature)
+ * @param sender the account that generates this request
+ * @param key the nonce key value from the request
+ * @param nonce the nonce value from the request
+ */
+export class AccountInitializedEvent extends Struct({
+    entryPoint: PublicKey,
+    account: PublicKey,
+    owner: Curve,
+}) {}
 
 export abstract class IAccountContract extends SmartContract {
     /**
      * Validates a user operation and executes it
-     * @dev Must validate caller is the {@link EntryPoint}
+     * @dev Must call the {@link EntryPoint} for nonce management
      * @dev Must validate the signature and assert no replay
      * @param userOp user operation to validate and execute
      * @param signature user operation signature
-     * @param missingAccountFunds missing funds on the account's deposit in the {@link EntryPoint}
-     *      This is the minimum amount to be transferred to the {@link EntryPoint} to make the call
-     *      The excess is left in the {@link EntryPoint} for future calls, and can be withdrawn anytime
      */
     abstract validateUserOpAndExecute(
         userOp: UserOperation,
         signature: Ecdsa,
-        missingAccountFunds: UInt64,
     ): Promise<Field>
 
     /**

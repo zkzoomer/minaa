@@ -1,16 +1,17 @@
 import {
     AccountUpdate,
     Bool,
-    type DeployArgs,
     Field,
     PublicKey,
     State,
-    Struct,
     UInt64,
     method,
     state,
 } from "o1js"
-import { IAccountContract } from "../interfaces/IAccountContract"
+import {
+    AccountInitializedEvent,
+    IAccountContract,
+} from "../interfaces/IAccountContract"
 import {
     Curve,
     CurveScalar,
@@ -18,25 +19,6 @@ import {
     UserOperation,
 } from "../interfaces/UserOperation"
 import { EntryPoint } from "./EntryPoint"
-
-export interface AccountContractDeployProps
-    extends Exclude<DeployArgs, undefined> {
-    entryPoint: PublicKey
-    owner: Curve
-}
-
-/***
- * An event emitted after each successful request
- * @param userOpHash unique identifier for the request (hash its entire content, except signature)
- * @param sender the account that generates this request
- * @param key the nonce key value from the request
- * @param nonce the nonce value from the request
- */
-export class AccountInitializedEvent extends Struct({
-    entryPoint: PublicKey,
-    account: PublicKey,
-    owner: Curve.provable,
-}) {}
 
 // Defining the uninitialized state for the account contract
 const deadKey = CurveScalar.from(0xdead)
@@ -55,7 +37,7 @@ export class AccountContract extends IAccountContract {
     /**
      * Initializes the `AccountContract` smart contract
      * @param entryPoint The `EntryPoint` smart contract
-     * @param owner The secp256k1 public key of the owner of this account smart contract
+     * @param owner The public key of the owner of this account smart contract
      * @param prefund The amount of funds to be prefunded to the account
      * @param initialBalance The initial balance of the account
      */
@@ -121,16 +103,11 @@ export class AccountContract extends IAccountContract {
         return userOpHash
     }
 
-    /**
-     * Validates that the signature is valid for the operation
-     * @param userOperationHash
-     * @param signature
-     * @param publicKey
-     */
-    async verifySignature(userOperationHash: Field, signature: Ecdsa) {
+    /// @inheritdoc IAccountContract
+    async verifySignature(dataHash: Field, signature: Ecdsa) {
         signature
             .verifySignedHash(
-                new CurveScalar([userOperationHash, Field(0), Field(0)]),
+                new CurveScalar([dataHash, Field(0), Field(0)]),
                 this.owner.getAndRequireEquals(),
             )
             .assertEquals(Bool(true))

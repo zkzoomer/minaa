@@ -107,9 +107,21 @@ export abstract class IEntryPoint extends SmartContract {
 
     /**
      * Generate a request ID - unique identifier for this request
-     * The request ID is a hash over the content of the userOp (except the signature), the entrypoint and the chainid
+     * The request ID is a hash over the content of the userOp (except the signature) and the entrypoint
      * @param userOp user operation being executeds
      * @returns the request ID
      */
     abstract getUserOpHash(userOp: UserOperation): Promise<Field>
+
+    /**
+     * Validates a nonce uniqueness for the given account, and updates it. Reverts if the nonce is not valid
+     * @param sender account being validated
+     * @param key nonce key being validated
+     * @param nonce nonce being validated
+     */
+    abstract validateAndUpdateNonce(
+        sender: PublicKey,
+        key: Field,
+        nonce: Field,
+    ): Promise<Void>
 }
