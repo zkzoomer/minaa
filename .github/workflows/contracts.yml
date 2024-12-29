@@ -33,8 +33,14 @@ jobs:
         run: |
             cd packages/contracts
             bun run build
-      - name: Test lib
+      - name: Test lib--secp256k1
         run: |
             export SKIP_PROOFS=true
+            cd packages/contracts
+            bun run test
+      - name: Test lib--secp256r1
+        run: |
+            export SKIP_PROOFS=true
+            export SECP256R1=true
             cd packages/contracts
             bun run test
