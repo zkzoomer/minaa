@@ -132,13 +132,51 @@ export class EntryPoint extends IEntryPoint {
         signature: Ecdsa,
         beneficiary: PublicKey,
     ): Promise<Void> {
-        const fee = await this._getRequiredPrefund(userOp)
-        const userOpHash = await this._validateAndExecute(
-            userOp,
-            signature,
-            fee,
-        )
-        await this._compensate(beneficiary, fee)
+        // Check if the account has enough funds to pay for the operation
+        const oldBalanceOption = await this._balanceOf(userOp.sender)
+        const oldBalance = oldBalanceOption.orElse(UInt64.from(0))
+        oldBalance.assertGreaterThanOrEqual(userOp.fee)
+
+        // Decrease the deposited amount for the account by the required fee, which will be sent to the beneficiary
+        await this.offchainState.fields.depositInfo.update(userOp.sender, {
+            from: oldBalanceOption,
+            to: oldBalance.sub(userOp.fee),
+        })
+
+        // Execute the user operation
+        await this._handleOp(userOp, signature, beneficiary)
+    }
+
+    /// @inheritdoc IEntryPoint
+    @method
+    async paymasterHandleOp(
+        userOp: UserOperation,
+        signature: Ecdsa,
+        beneficiary: PublicKey,
+    ): Promise<Void> {
+        // The caller will act as the paymaster and cover the fee
+        AccountUpdate.createSigned(this.sender.getAndRequireSignature()).send({
+            to: this,
+            amount: userOp.fee,
+        })
+
+        // Execute the user operation
+        await this._handleOp(userOp, signature, beneficiary)
+    }
+
+    /**
+     * Executes a `UserOperation`
+     * @param userOp user operation being executed
+     * @param signature user operation signature
+     * @param beneficiary address to receive the fees
+     */
+    private async _handleOp(
+        userOp: UserOperation,
+        signature: Ecdsa,
+        beneficiary: PublicKey,
+    ): Promise<Void> {
+        const userOpHash = await this._validateAndExecute(userOp, signature)
+        await this._compensate(beneficiary, userOp.fee)
 
         // Emits a `UserOperation`
         this.emitEvent(
@@ -180,21 +218,14 @@ export class EntryPoint extends IEntryPoint {
     }
 
     /**
-     * Calls `validateUserOpAndExecute` on the corresponding account, reverts if failed validation or no required prefund
-     * @param userOp
-     * @param signature
-     * @param requiredPrefund
+     * Calls `validateUserOpAndExecute` on the corresponding account, reverts if it fails verification
+     * @param userOp user operation being executed
+     * @param signature user operation signature
      */
     private async _validateAndExecute(
         userOp: UserOperation,
         signature: Ecdsa,
-        fee: UInt64,
     ): Promise<Field> {
-        // Check if the account has enough funds to pay for the operation
-        const oldBalanceOption = await this._balanceOf(userOp.sender)
-        const oldBalance = oldBalanceOption.orElse(UInt64.from(0))
-        oldBalance.assertGreaterThanOrEqual(fee)
-
         // Validate the operation and execute it
         const accountContract = new AccountContract(userOp.sender)
         const userOpHash = await accountContract.validateUserOpAndExecute(
@@ -202,22 +233,7 @@ export class EntryPoint extends IEntryPoint {
             signature,
         )
 
-        // Decrease the deposited amount for the account by the required fee, which will be sent to the beneficiary
-        await this.offchainState.fields.depositInfo.update(userOp.sender, {
-            from: oldBalanceOption,
-            to: oldBalance.sub(fee),
-        })
-
         return userOpHash
-    }
-
-    /**
-     * Returns the specified transaction fee in the user operation
-     * @param userOp the user operation being executed
-     * @returns transaction fee
-     */
-    private async _getRequiredPrefund(userOp: UserOperation): Promise<UInt64> {
-        return userOp.fee
     }
 
     /**

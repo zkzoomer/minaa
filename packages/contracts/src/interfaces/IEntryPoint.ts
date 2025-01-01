@@ -106,6 +106,18 @@ export abstract class IEntryPoint extends SmartContract {
     ): Promise<Void>
 
     /**
+     * Executes a `UserOperation` as a paymaster, covering the fees
+     * @param userOp user operation being executed
+     * @param signature user operation signature
+     * @param beneficiary address to receive the fees
+     */
+    abstract paymasterHandleOp(
+        userOp: UserOperation,
+        signature: Ecdsa,
+        beneficiary: PublicKey,
+    ): Promise<Void>
+
+    /**
      * Generate a request ID - unique identifier for this request
      * The request ID is a hash over the content of the userOp (except the signature) and the entrypoint
      * @param userOp user operation being executeds

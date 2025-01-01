@@ -379,6 +379,150 @@ describe("EntryPoint", () => {
         })
     })
 
+    describe("paymasterHandleOp", () => {
+        let paymasterBalance: UInt64
+        let balance: UInt64
+        let fee: UInt64
+        let amount: UInt64
+        let userOp: UserOperation
+        let oldRecipientBalance: UInt64
+        let oldBeneficiaryBalance: UInt64
+
+        const sendPaymasterHandleOp = async (
+            userOp: UserOperation,
+            signature: CurveSignature,
+        ) => {
+            const tx = await Mina.transaction(
+                { sender: deployer, fee: FEE },
+                async () => {
+                    await entryPointContract.paymasterHandleOp(
+                        userOp,
+                        signature,
+                        beneficiary.key.toPublicKey(),
+                    )
+                },
+            )
+            await tx.prove()
+            await tx.sign([deployer.key]).send()
+            await settleEntryPoint(entryPointContract, deployer)
+
+            return tx
+        }
+
+        beforeAll(async () => {
+            oldRecipientBalance = await Mina.getBalance(recipient)
+            oldBeneficiaryBalance = await Mina.getBalance(beneficiary)
+            // Account already deployed
+            paymasterBalance = await Mina.getBalance(deployer.key.toPublicKey())
+            balance = await Mina.getBalance(account.key.toPublicKey())
+
+            // Define a UserOperation
+            fee = UInt64.from(
+                Math.floor((Math.random() * Number(paymasterBalance)) / 2),
+            )
+            amount = UInt64.from(
+                Math.floor((Math.random() * Number(balance)) / 2),
+            )
+            userOp = new UserOperation({
+                sender: account.key.toPublicKey(),
+                nonce: Field(0),
+                key: Field(1),
+                calldata: new UserOperationCallData({ recipient, amount }),
+                fee: fee,
+            })
+        })
+
+        it("validates and executes the UserOperation, sending the fee to the beneficiary", async () => {
+            const userOpHash = await entryPointContract.getUserOpHash(userOp)
+            const signature = CurveSignature.signHash(
+                new CurveScalar([userOpHash, Field(0), Field(0)]).toBigInt(),
+                privateKey.toBigInt(),
+            )
+            await sendPaymasterHandleOp(userOp, signature)
+
+            // The fee was debited from the sender's balance
+            const senderBalance = await Mina.getBalance(
+                deployer.key.toPublicKey(),
+            )
+            expect(senderBalance.toString()).toEqual(
+                paymasterBalance.sub(FEE).sub(fee).toString(),
+            )
+            // And sent to the beneficiary
+            const beneficiaryBalance = await Mina.getBalance(beneficiary)
+            expect(beneficiaryBalance.toString()).toEqual(
+                oldBeneficiaryBalance.add(fee).toString(),
+            )
+
+            // The account's balance was decremented by the amount
+            const accountBalance = await Mina.getBalance(
+                account.key.toPublicKey(),
+            )
+            expect(accountBalance.toString()).toEqual(
+                balance.sub(amount).toString(),
+            )
+            // And sent to the recipient
+            const recipientBalance = await Mina.getBalance(recipient)
+            expect(recipientBalance.toString()).toEqual(
+                oldRecipientBalance.add(amount).toString(),
+            )
+        })
+
+        it("reverts under a replay attack", async () => {
+            const userOpHash = await entryPointContract.getUserOpHash(userOp)
+            const signature = CurveSignature.signHash(
+                new CurveScalar([userOpHash, Field(0), Field(0)]).toBigInt(),
+                privateKey.toBigInt(),
+            )
+
+            await expect(
+                async () =>
+                    await Mina.transaction(
+                        { sender: deployer, fee: FEE },
+                        async () => {
+                            await entryPointContract.handleOp(
+                                userOp,
+                                signature,
+                                beneficiary.key.toPublicKey(),
+                            )
+                        },
+                    ),
+            ).rejects.toThrow()
+        })
+
+        it("reverts if the signature is invalid", async () => {
+            const signature = CurveSignature.signHash(
+                new CurveScalar([
+                    Field.random(),
+                    Field.random(),
+                    Field.random(),
+                ]).toBigInt(),
+                privateKey.toBigInt(),
+            )
+
+            await expect(
+                async () =>
+                    await Mina.transaction(
+                        { sender: deployer, fee: FEE },
+                        async () => {
+                            await entryPointContract.paymasterHandleOp(
+                                userOp,
+                                signature,
+                                beneficiary.key.toPublicKey(),
+                            )
+                        },
+                    ),
+            ).rejects.toThrow()
+        })
+
+        it("emits a UserOperation event", async () => {
+            const userOpHash = await entryPointContract.getUserOpHash(userOp)
+            const events = await entryPointContract.fetchEvents()
+            expect(events[0]?.event.data).toEqual(
+                UserOperationEvent.fromValue({ userOpHash, ...userOp }),
+            )
+        })
+    })
+
     describe("getUserOpHash", () => {
         it("returns the hash of the UserOperation", async () => {
             const userOp = new UserOperation({
