@@ -1,6 +1,6 @@
 import { Field, Mina, Poseidon, UInt64 } from "o1js"
 import { AccountContract } from "../src/contracts/AccountContract"
-import { EntryPoint } from "../src/contracts/EntryPoint"
+import { EntryPoint, offchainState } from "../src/contracts/EntryPoint"
 import {
     Curve,
     CurveScalar,
@@ -37,6 +37,8 @@ describe("AccountContract", () => {
     beforeAll(async () => {
         if (proofsEnabled) {
             await AccountContract.compile()
+            await offchainState.compile()
+            await EntryPoint.compile()
         }
     })
 

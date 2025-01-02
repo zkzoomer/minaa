@@ -34,6 +34,11 @@ describe("EntryPoint", () => {
 
     // Tests break when doing a `beforeEach`
     beforeAll(async () => {
+        if (proofsEnabled) {
+            await offchainState.compile()
+            await EntryPoint.compile()
+        }
+
         const localChain = await initLocalBlockchain()
         deployer = localChain.deployer
         entryPoint = localChain.entryPoint
@@ -46,11 +51,6 @@ describe("EntryPoint", () => {
         // A private key is a random scalar of secp256k1
         privateKey = CurveScalar.random()
         owner = Curve.generator.scale(privateKey)
-
-        if (proofsEnabled) {
-            await offchainState.compile()
-            await EntryPoint.compile()
-        }
     })
 
     async function localDeploy() {
