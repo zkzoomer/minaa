@@ -1,5 +1,5 @@
 import { AccountContract } from "./contracts/AccountContract"
-import { AccountFactory } from "./contracts/AccountFactory"
+import { AccountRegistry } from "./contracts/AccountRegistry"
 import { EntryPoint } from "./contracts/EntryPoint"
 
-export { AccountContract, AccountFactory, EntryPoint }
+export { AccountContract, AccountRegistry, EntryPoint }

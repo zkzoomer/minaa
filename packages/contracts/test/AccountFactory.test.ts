@@ -1,9 +1,9 @@
 import { Mina, PublicKey, UInt64 } from "o1js"
 import {
     AccountAddedEvent,
-    AccountFactory,
+    AccountRegistry,
     accountFactoryOffchainState,
-} from "../src/contracts/AccountFactory"
+} from "../src/contracts/AccountRegistry"
 import {
     EntryPoint,
     offchainState as entryPointOffchainState,
@@ -27,12 +27,12 @@ const prefund = UInt64.from(350)
 // Define the initial balance of the account
 const initialBalance = UInt64.from(1_000_000_000)
 
-describe("AccountFactory", () => {
+describe("AccountRegistry", () => {
     let deployer: Mina.TestPublicKey
     let account: Mina.TestPublicKey
     let accountFactory: Mina.TestPublicKey
     let entryPoint: Mina.TestPublicKey
-    let accountFactoryContract: AccountFactory
+    let accountFactoryContract: AccountRegistry
     let entryPointContract: EntryPoint
 
     beforeAll(async () => {
@@ -40,7 +40,7 @@ describe("AccountFactory", () => {
             await entryPointOffchainState.compile()
             await EntryPoint.compile()
             await accountFactoryOffchainState.compile()
-            await AccountFactory.compile()
+            await AccountRegistry.compile()
         }
     })
 
@@ -51,7 +51,7 @@ describe("AccountFactory", () => {
         entryPoint = localChain.entryPoint
         accountFactory = localChain.accountFactory
 
-        accountFactoryContract = new AccountFactory(accountFactory)
+        accountFactoryContract = new AccountRegistry(accountFactory)
         accountFactoryContract.offchainState.setContractInstance(
             accountFactoryContract,
         )
@@ -80,7 +80,7 @@ describe("AccountFactory", () => {
     }
 
     describe("deploy", () => {
-        it("should deploy AccountFactory", async () => {
+        it("should deploy AccountRegistry", async () => {
             await localDeploy()
         })
     })

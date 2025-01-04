@@ -29,7 +29,7 @@ export const accountFactoryOffchainState = OffchainState({
 })
 export class AccountFactoryStateProof extends accountFactoryOffchainState.Proof {}
 
-export class AccountFactory extends SmartContract {
+export class AccountRegistry extends SmartContract {
     events = {
         AccountAdded: AccountAddedEvent,
     }
@@ -43,12 +43,12 @@ export class AccountFactory extends SmartContract {
     offchainState = accountFactoryOffchainState.init(this)
 
     /**
-     * Initializes the `AccountFactory` smart contract
+     * Initializes the `AccountRegistry` smart contract
      * @param entryPoint The `EntryPoint` smart contract
      */
     @method
     async initialize(entryPoint: PublicKey) {
-        // Check that the `AccountFactory` was not already initialized
+        // Check that the `AccountRegistry` was not already initialized
         this.entryPoint.getAndRequireEquals().assertEquals(PublicKey.empty())
         // Define the account's `entryPoint`
         this.entryPoint.set(entryPoint)

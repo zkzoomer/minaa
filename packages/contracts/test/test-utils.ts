@@ -1,5 +1,5 @@
 import { Mina, type PublicKey, type UInt64 } from "o1js"
-import { AccountContract, type AccountFactory } from "../src"
+import { AccountContract, type AccountRegistry } from "../src"
 import type { EntryPoint } from "../src/contracts/EntryPoint"
 import type { Curve } from "../src/interfaces/UserOperation"
 
@@ -105,7 +105,7 @@ export const setAccountContract = async (
 
 export const initAccountFactory = async (
     deployer: Mina.TestPublicKey,
-    accountFactoryContract: AccountFactory,
+    accountFactoryContract: AccountRegistry,
     entryPointContract: EntryPoint,
 ) => {
     const tx = await Mina.transaction(
@@ -120,7 +120,7 @@ export const initAccountFactory = async (
 
 export const addAccountToFactory = async (
     deployer: Mina.TestPublicKey,
-    accountFactoryContract: AccountFactory,
+    accountFactoryContract: AccountRegistry,
     account: PublicKey,
 ) => {
     const tx = await Mina.transaction(
