@@ -71,3 +71,15 @@ Furthermore, o1js's lack of a `msg.sender` equivalent means that it is not possi
 
 - **Consumer Applications**: Other applications could also benefit from account abstraction: ZK Email, recurring payments, conditional transfers, etc.
 
+## Further Work
+
+By simply adding a `msg.sender` equivalent to o1js, much of the added complexity of the current design could be removed. In turn, it could be possible to define an almost general-purpose `UserOperationCallData` that can be used for any application. Such a design could look like the following:
+
+```typescript
+class UserOperationCallData extends Struct({
+    address: PublicKey,
+    dataFields: Array<Field>(n),
+}) {}
+```
+
+Where the `address` is the contract being called, and the `dataFields` is an array of _n_ fields that acts as the calldata. Each smart contract would then have to define an additional method to parse the `dataFields` into the appropriate arguments. This would allow for the creation of a general-purpose `UserOperationCallData` that can be used for any application, abstracting away the added complexity of the current design.
