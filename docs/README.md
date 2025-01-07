@@ -5,7 +5,7 @@
 MinAA is a project designed to enable users to interact with the Mina blockchain using non-custodial accounts. These accounts validate user operations using non-native signatures, allowing for a more flexible and secure interaction with the blockchain. The architecture is inspired by Ethereum's ERC-4337 and revolves around the concept of account abstraction.
 
 An _account_ in this context is a smart contract that implements the [`IAccountContract`](../packages/contracts/src/interfaces/IAccountContract.ts) interface, which must implement two methods:
-- 1. `validateUserOp` to validate a user operation
+- 1. `validateUserOpAndExecute` to validate a user operation and execute it
 - 2. `verifySignature` to verify a signature
 Internally, these can implement any logic to validate the user operation and signature. The example provided in the [`AccountContract`](../packages/contracts/src/contracts/AccountContract.ts) implements ECDSA signatures on either [secp256r1](../packages/contracts/src/interfaces/UserOperation.ts#L14) or [secp256k1](../packages/contracts/src/interfaces/UserOperation.ts#L15).
 
